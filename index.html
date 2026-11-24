@@ -29,6 +29,16 @@ input,select{width:100%;border:1px solid #d7e1e5;border-radius:10px;padding:11px
 .bar{height:7px;background:#e7edef;border-radius:9px;overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;background:#4c9b7c}
 canvas{width:100%;height:180px}
 footer{text-align:center;color:#83939b;font-size:11px;padding:8px}
+.musclemap{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center}
+.bodyfigure{width:100%;max-width:120px;background:#f6f9fa;border-radius:14px;padding:8px}
+.musclelegend{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.muscleitem{background:#f7fafb;border:1px solid var(--line);border-radius:11px;padding:9px}
+.muscleitem b{font-size:13px}.muscleitem .muted{font-size:11px}
+.delta-up{color:#16845b;font-weight:750}.delta-down{color:#b45a42;font-weight:750}
+.recommend{background:#edf5f8;border:1px solid #d8e7ed;border-radius:13px;padding:12px;margin:10px 0}
+.recommend b{display:block;margin-bottom:4px}
+@media(max-width:380px){.musclemap{grid-template-columns:88px 1fr}.musclelegend{grid-template-columns:1fr}}
+
 @media(min-width:600px){main{padding:22px}.stats{max-width:450px}}
 </style>
 </head>
@@ -43,14 +53,15 @@ footer{text-align:center;color:#83939b;font-size:11px;padding:8px}
  <div class="section-title">Следующая тренировка</div>
  <div class="card">
   <div class="row"><b id="nextTitle">Грудь · спина · руки</b><span class="tag">План</span></div>
-  <p class="muted" id="nextDesc">Чередуем две программы. Последняя известная точка — тренировка №18.</p>
+  <p class="muted" id="nextDesc">Чередуем две программы и сверяемся с предыдущими результатами.</p>
+  <div class="recommend" id="coachPlan">Подготовка рекомендаций…</div>
   <button class="full" onclick="startWorkout()">Начать тренировку</button>
  </div>
  <div class="section-title">Твои направления</div>
  <div class="muscles" id="muscleCards"></div>
  <div class="section-title" style="margin-top:20px">Последние записи</div>
  <div class="card" id="recent">Пока нет сохранённых подходов. Начни тренировку, чтобы добавить первые данные.</div>
- <div class="notice">Исторические ориентиры из прежнего дневника пока не считаются точными результатами конкретной тренировки. Вноси фактические подходы — графики будут строиться по ним.</div>
+ <div class="notice">Восстановлены точные доступные подходы предыдущей тренировки ног и плеч. Для тренировки №18 восстановлен список упражнений, но её подходы не заполнены: точные цифры не сохранились.</div>
 </section>
 <section id="train" class="hidden">
  <div class="row"><div><div class="section-title" style="margin:0">Текущая тренировка</div><div class="muted" id="workoutSub">№19 · Грудь, спина и руки</div></div><span class="tag">Запись подходов</span></div>
@@ -64,6 +75,8 @@ footer{text-align:center;color:#83939b;font-size:11px;padding:8px}
 </section>
 <section id="progress" class="hidden">
  <div class="section-title">История и прогресс</div>
+ <div class="card"><b>Карта развития мышц</b><p class="muted">Схематичная карта показывает, сколько рабочих подходов записано по каждой группе. Это учёт выполненной работы, а не медицинская оценка мышц.</p><div id="muscleMap"></div></div>
+ <div class="card"><b>Сравнение с предыдущими тренировками</b><p class="muted">Сравниваем одинаковые упражнения: лучший вес, повторения и объём.</p><div id="comparison">Появится после повторения упражнений в следующих тренировках.</div></div>
  <div class="card"><b>Тренировочный объём</b><p class="muted">Сумма веса × повторения по сохранённым подходам</p><canvas id="chart" width="600" height="220"></canvas><div class="muted small" id="chartNote">График появится после сохранения тренировок.</div></div>
  <div class="card"><b>Лучшие рабочие результаты</b><div id="bestResults" class="muted" style="margin-top:10px">Пока нет данных.</div></div>
  <div class="card"><b>История тренировок</b><div id="history"></div></div>
@@ -76,7 +89,7 @@ footer{text-align:center;color:#83939b;font-size:11px;padding:8px}
   <div style="height:9px"></div><label class="btn secondary full" style="display:block;text-align:center">Восстановить из файла<input type="file" accept=".json,application/json" onchange="importData(event)" hidden></label>
  </div>
  <div class="card"><b>Облачная синхронизация</b><p class="muted">В этой версии данные хранятся на устройстве. Автоматическая синхронизация между телефонами требует подключения облачного сервиса и учётной записи — добавим отдельным этапом.</p></div>
- <div class="card"><b>Исторические ориентиры</b><p class="muted">Из старого дневника известны примеры: жим в тренажёре 22,5–27 кг; наклонный жим гантелей 6–8 кг; гравитрон с противовесом 57–63 кг; верхняя тяга 18–27 кг; жим ногами 45–60 кг; разгибание ног 40–50 кг; жим сидя 20 кг. Это подсказки, не импортированные подходы.</p></div>
+ <div class="card"><b>Исторические ориентиры</b><p class="muted">Тренировка №17 восстановлена по точным доступным записям. Тренировка №18 содержит список упражнений без подходов: точные цифры не восстановлены и не выдумывались.</p></div>
  <button class="danger full" onclick="clearData()">Очистить дневник на этом устройстве</button>
 </section>
 </main>
@@ -88,8 +101,9 @@ footer{text-align:center;color:#83939b;font-size:11px;padding:8px}
 </nav>
 <script>
 const KEY='vanyaFitnessDataV1';
-const defaults={sessions:[],nextNo:19};
+const defaults={"sessions":[{"no":17,"date":"","program":"B","exercises":[{"name":"Жим ногами","sets":[{"weight":80,"reps":10},{"weight":80,"reps":12},{"weight":80,"reps":15}]},{"name":"Выпады","sets":[{"weight":34,"reps":10},{"weight":34,"reps":12},{"weight":34,"reps":10}]},{"name":"Сведение ног","sets":[{"weight":30,"reps":15},{"weight":35,"reps":12},{"weight":35,"reps":10}]},{"name":"Тяга к подбородку","sets":[{"weight":24,"reps":13},{"weight":24,"reps":11},{"weight":24,"reps":12}]},{"name":"Задняя дельта","sets":[{"weight":35,"reps":12},{"weight":40,"reps":12},{"weight":40,"reps":12}]}]},{"no":18,"date":"2026-11-18","program":"A","exercises":[{"name":"Жим от груди в тренажёре","sets":[]},{"name":"Жим гантелей на наклонной скамье","sets":[]},{"name":"Тяга верхнего блока","sets":[]},{"name":"Горизонтальная тяга","sets":[]},{"name":"Бицепс","sets":[]},{"name":"Трицепс","sets":[]}]}],"nextNo":19};
 let db=load();
+if(!localStorage.getItem(KEY)){db=structuredClone(defaults);localStorage.setItem(KEY,JSON.stringify(db));}
 const programs={
  A:['Жим от груди в тренажёре','Жим гантелей на наклонной скамье','Тяга верхнего блока','Горизонтальная тяга','Сгибание рук на бицепс','Разгибание рук на трицепс'],
  B:['Жим ногами','Разгибание ног','Сгибание ног','Подъёмы на носки','Жим сидя на плечи','Разведения гантелей в стороны','Задняя дельта']
@@ -97,17 +111,86 @@ const programs={
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||structuredClone(defaults)}catch(e){return structuredClone(defaults)}}
 function save(){localStorage.setItem(KEY,JSON.stringify(db));render()}
 function showTab(id,btn){document.querySelectorAll('main section').forEach(x=>x.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');if(id==='progress')drawProgress()}
-function startWorkout(){showTab('train',document.querySelector('[data-tab=train]'));document.getElementById('sessionNo').value=db.nextNo||19;document.getElementById('sessionDate').value=new Date().toISOString().slice(0,10);loadExercises()}
+function nextProgram(){const last=[...db.sessions].reverse().find(x=>x.program==='A'||x.program==='B');return last&&last.program==='A'?'B':'A'}
+function startWorkout(){showTab('train',document.querySelector('[data-tab=train]'));document.getElementById('sessionNo').value=db.nextNo||19;document.getElementById('sessionDate').value=new Date().toISOString().slice(0,10);document.getElementById('program').value=nextProgram();loadExercises()}
 function loadExercises(){const p=document.getElementById('program').value;document.getElementById('workoutSub').textContent='№'+document.getElementById('sessionNo').value+' · '+(p==='A'?'Грудь, спина и руки':'Ноги и плечи');document.getElementById('exerciseList').innerHTML='';programs[p].forEach(addExerciseCard)}
 function addExercise(){addExerciseCard('Новое упражнение')}
-function addExerciseCard(name){const wrap=document.createElement('div');wrap.className='exercise';wrap.innerHTML=`<div class="row"><input class="exname" value="${escapeHtml(name)}" aria-label="Название упражнения" style="font-weight:700"><button class="secondary" onclick="const e=this.closest('.exercise');const box=e.parentElement;e.remove();[...box.querySelectorAll('.exercise')].forEach(x=>[...x.querySelectorAll('.setline')].forEach((r,i)=>r.firstElementChild.textContent='Подход '+(i+1)))">✕</button></div><div class="muted small prev"></div><div class="sets"></div><button class="secondary small" onclick="addSet(this)">＋ Подход</button>`;document.getElementById('exerciseList').appendChild(wrap);const previous=findPrevious(name);wrap.querySelector('.prev').textContent=previous?'Прошлый результат: '+previous:'';addSet(wrap.querySelector('button'))}
+function addExerciseCard(name){const wrap=document.createElement('div');wrap.className='exercise';wrap.innerHTML=`<div class="row"><input class="exname" value="${escapeHtml(name)}" aria-label="Название упражнения" style="font-weight:700"><button class="secondary" onclick="this.closest('.exercise').remove()">✕</button></div><div class="muted small prev"></div><div class="sets"></div><button class="secondary small" onclick="addSet(this)">＋ Подход</button>`;document.getElementById('exerciseList').appendChild(wrap);const previous=findPrevious(name);wrap.querySelector('.prev').textContent=previous?'Прошлый результат: '+previous:'';const hint=document.createElement('div');hint.className='muted small';hint.style.marginTop='4px';hint.textContent=previous?'Ориентир: сначала повторить прошлый результат с чистой техникой; если осталось 1–2 повтора в запасе — добавить 1 повтор или минимальный шаг веса.':'';wrap.insertBefore(hint,wrap.querySelector('.sets'));addSet(wrap.querySelector('button'))}
 function addSet(btn){const sets=btn.closest('.exercise').querySelector('.sets');const n=sets.children.length+1;const row=document.createElement('div');row.className='setline';row.innerHTML=`<span class="small muted">Подход ${n}</span><input type="number" min="0" step="0.5" placeholder="кг" aria-label="Вес в килограммах"><input type="number" min="1" placeholder="повт." aria-label="Повторения"><button class="secondary" onclick="this.parentElement.remove();renumber(this)">−</button>`;sets.appendChild(row)}
 function renumber(el){const box=el.closest('.sets');[...box.children].forEach((r,i)=>r.firstElementChild.textContent='Подход '+(i+1))}
 function findPrevious(name){for(let i=db.sessions.length-1;i>=0;i--){const e=db.sessions[i].exercises.find(x=>x.name.toLowerCase()===name.toLowerCase());if(e&&e.sets.length)return e.sets.map(s=>s.weight+'×'+s.reps).join(', ')}return ''}
 function finishWorkout(){const no=+document.getElementById('sessionNo').value;const date=document.getElementById('sessionDate').value;const p=document.getElementById('program').value;const exercises=[...document.querySelectorAll('.exercise')].map(e=>({name:e.querySelector('.exname').value.trim(),sets:[...e.querySelectorAll('.setline')].map(r=>({weight:+r.children[1].value,reps:+r.children[2].value})).filter(s=>s.weight>0&&s.reps>0)})).filter(e=>e.name&&e.sets.length);if(!date||!exercises.length){alert('Укажи дату и запиши хотя бы один подход с весом и повторениями.');return}db.sessions.push({no,date,program:p,exercises});db.nextNo=Math.max(db.nextNo,no+1);save();alert('Тренировка сохранена! Отличная работа.');showTab('home',document.querySelector('[data-tab=home]'))}
 function allSets(){return db.sessions.flatMap(s=>s.exercises.flatMap(e=>e.sets.map(x=>({...x,name:e.name,date:s.date,no:s.no}))))}
-function render(){const sets=allSets();document.getElementById('workoutCount').textContent=db.sessions.length;document.getElementById('exerciseCount').textContent=new Set(sets.map(s=>s.name)).size;document.getElementById('recordCount').textContent=sets.length;document.getElementById('backupStatus').textContent='Сохранено на устройстве';document.getElementById('muscleCards').innerHTML=[['Грудь','Жимы'],['Спина','Тяги'],['Плечи','Жимы и разведения'],['Ноги','Жимы и сгибания']].map(([a,b])=>`<div class="muscle"><b>${a}</b><div class="muted small">${b}</div><div class="bar"><i style="width:${Math.min(100,sets.length*4)}%"></i></div></div>`).join('');const last=db.sessions.at(-1);document.getElementById('recent').innerHTML=last?`<b>Тренировка №${last.no}</b><div class="muted">${last.date} · ${last.exercises.length} упражнений · ${last.exercises.reduce((a,e)=>a+e.sets.length,0)} подходов</div>`:'Пока нет сохранённых подходов. Начни тренировку, чтобы добавить первые данные.';document.getElementById('history').innerHTML=db.sessions.slice().reverse().map(s=>`<div class="exercise"><b>№${s.no} · ${s.date}</b><div class="muted">${s.exercises.map(e=>e.name+' ('+e.sets.length+')').join(' · ')}</div></div>`).join('')||'История пока пуста.'}
-function drawProgress(){const sets=allSets(),canvas=document.getElementById('chart'),ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);if(!db.sessions.length){document.getElementById('chartNote').textContent='График появится после сохранения тренировок.';return}const vals=db.sessions.map(s=>s.exercises.reduce((a,e)=>a+e.sets.reduce((b,x)=>b+x.weight*x.reps,0),0));const max=Math.max(...vals,1);ctx.strokeStyle='#2c6685';ctx.lineWidth=4;ctx.beginPath();vals.forEach((v,i)=>{const x=30+i*(540/Math.max(1,vals.length-1)),y=185-v/max*155;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();vals.forEach((v,i)=>{const x=30+i*(540/Math.max(1,vals.length-1)),y=185-v/max*155;ctx.fillStyle='#16845b';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill()});document.getElementById('chartNote').textContent='Объём по тренировкам: кг × повторения. Это ориентировочный показатель, сравнивай одинаковые упражнения.';const best={};sets.forEach(s=>best[s.name]=Math.max(best[s.name]||0,s.weight));document.getElementById('bestResults').innerHTML=Object.entries(best).map(([n,w])=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${n}</span><b>${w} кг</b></div>`).join('')||'Пока нет данных.'}
+function classifyExercise(name){
+ const n=name.toLowerCase();
+ if(/жим от груди|наклонн|сведение рук|груд/.test(n))return ['Грудь','chest'];
+ if(/тяга верх|горизонтальн|подтяг|греб|спин/.test(n))return ['Спина','back'];
+ if(/бицеп|сгибание рук/.test(n))return ['Бицепс','arms'];
+ if(/трицеп|разгибание рук/.test(n))return ['Трицепс','arms'];
+ if(/плеч|дельт|подбород|разведени/.test(n))return ['Плечи','shoulders'];
+ if(/жим ног|выпад|разгибание ног|сгибание ног|сведение ног|присед/.test(n))return ['Ноги','legs'];
+ if(/икр|носки/.test(n))return ['Икры','legs'];
+ return ['Не распределено','other'];
+}
+function muscleStats(){
+ const names=['Грудь','Спина','Плечи','Бицепс','Трицепс','Ноги','Икры'];
+ const stats={};names.forEach(n=>stats[n]={sets:0,exercises:0});
+ db.sessions.forEach(session=>session.exercises.forEach(ex=>{
+  const [group]=classifyExercise(ex.name);
+  if(stats[group]){stats[group].sets+=ex.sets.length;if(ex.sets.length)stats[group].exercises++}
+ }));
+ return stats;
+}
+function render(){
+ const sets=allSets();
+ document.getElementById('workoutCount').textContent=db.sessions.length;
+ document.getElementById('exerciseCount').textContent=new Set(sets.map(s=>s.name)).size;
+ document.getElementById('recordCount').textContent=sets.length;
+ document.getElementById('backupStatus').textContent='Сохранено на устройстве';
+ const last=[...db.sessions].reverse().find(x=>x.no);
+ const plan=nextProgram();
+ document.getElementById('nextTitle').textContent=plan==='A'?'Грудь · спина · руки':'Ноги · плечи';
+ document.getElementById('nextDesc').textContent='Следующая по очереди программа · тренировка №'+(db.nextNo||19);
+ document.getElementById('coachPlan').innerHTML='<b>Подсказка тренера</b>'+(sets.length?'Сверься с прошлыми подходами. Сначала сохрани технику и повтори прежнюю нагрузку; увеличивай её только при уверенном выполнении.':'Пока мало записей для персональных сравнений. Начни с комфортного веса, оставляя 1–3 повтора в запасе.');
+ const stats=muscleStats();
+ document.getElementById('muscleCards').innerHTML=Object.entries(stats).filter(([k])=>k!=='Икры').map(([a,v])=>`<div class="muscle"><b>${a}</b><div class="muted small">${v.sets} рабочих подходов</div><div class="bar"><i style="width:${Math.min(100,v.sets*8)}%"></i></div></div>`).join('');
+ const lastSaved=[...db.sessions].reverse().find(x=>x.exercises.some(e=>e.sets.length));
+ document.getElementById('recent').innerHTML=lastSaved?`<b>Тренировка №${lastSaved.no}</b><div class="muted">${lastSaved.date||'Дата не указана'} · ${lastSaved.exercises.length} упражнений · ${lastSaved.exercises.reduce((a,e)=>a+e.sets.length,0)} подходов</div>`:'Пока нет сохранённых подходов. Начни тренировку, чтобы добавить первые данные.';
+ document.getElementById('history').innerHTML=db.sessions.slice().reverse().map(x=>`<div class="exercise"><b>№${x.no} · ${x.date||'дата не указана'}</b><div class="muted">${x.exercises.map(e=>e.name+' ('+e.sets.length+')').join(' · ')}</div></div>`).join('')||'История пока пуста.';
+}
+function drawProgress(){
+ const sets=allSets(),canvas=document.getElementById('chart'),ctx=canvas.getContext('2d');
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ if(!db.sessions.length){document.getElementById('chartNote').textContent='График появится после сохранения тренировок.'}
+ else{
+  const vals=db.sessions.map(x=>x.exercises.reduce((a,e)=>a+e.sets.reduce((b,q)=>b+q.weight*q.reps,0),0));
+  const max=Math.max(...vals,1);ctx.strokeStyle='#2c6685';ctx.lineWidth=4;ctx.beginPath();
+  vals.forEach((v,i)=>{const x=30+i*(540/Math.max(1,vals.length-1)),y=185-v/max*155;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+  ctx.stroke();vals.forEach((v,i)=>{const x=30+i*(540/Math.max(1,vals.length-1)),y=185-v/max*155;ctx.fillStyle='#16845b';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill()});
+  document.getElementById('chartNote').textContent='Объём по тренировкам: кг × повторения. Сравнивай одинаковые упражнения и тренировки одного типа.';
+ }
+ const stats=muscleStats(),total=Math.max(1,...Object.values(stats).map(x=>x.sets));
+ const bodySvg=`<div class="musclemap"><div class="bodyfigure"><svg viewBox="0 0 120 230" width="100%" role="img" aria-label="Схематичная фигура человека спереди"><circle cx="60" cy="20" r="13" fill="#d7e0e4" stroke="#8ca0aa"/><path d="M44 39 Q60 32 76 39 L84 92 L75 112 L72 153 L66 213 L54 213 L48 153 L45 112 L36 92Z" fill="#d7e0e4" stroke="#8ca0aa" stroke-width="1.5"/><path d="M40 45 L23 105 L30 109 L49 63 M80 45 L97 105 L90 109 L71 63" fill="none" stroke="#8ca0aa" stroke-width="9" stroke-linecap="round"/><path d="M45 48 Q60 43 75 48 L72 77 Q60 86 48 77Z" fill="#4f9c7a" opacity=".85"/><path d="M47 82 L73 82 L71 110 L49 110Z" fill="#4d83a0" opacity=".8"/><path d="M48 116 L58 116 L56 170 L49 170Z M62 116 L72 116 L71 170 L64 170Z" fill="#c28b55" opacity=".8"/></svg><div class="muted small" style="text-align:center">Схема спереди</div></div><div class="musclelegend">${Object.entries(stats).map(([n,v])=>`<div class="muscleitem"><b>${n}</b><div class="muted">${v.sets} подходов</div><div class="bar"><i style="width:${Math.round(v.sets/total*100)}%"></i></div></div>`).join('')}</div></div>`;
+ document.getElementById('muscleMap').innerHTML=bodySvg;
+ const groups={};
+ db.sessions.forEach(session=>session.exercises.forEach(ex=>{
+  const valid=ex.sets;
+  if(!valid.length)return;
+  const old=groups[ex.name]||[];
+  groups[ex.name]=old.concat([{no:session.no,date:session.date,sets:valid,volume:valid.reduce((a,x)=>a+x.weight*x.reps,0),maxWeight:Math.max(...valid.map(x=>x.weight)),maxReps:Math.max(...valid.map(x=>x.reps))}]);
+ }));
+ const rows=[];
+ Object.entries(groups).forEach(([name,arr])=>{
+  if(arr.length<2)return;
+  const prev=arr[arr.length-2],cur=arr[arr.length-1];
+  const diff=cur.maxWeight-prev.maxWeight;
+  const volDiff=cur.volume-prev.volume;
+  rows.push(`<div class="exercise"><b>${name}</b><div class="muted">№${prev.no} → №${cur.no}</div><div class="row small"><span>Лучший вес: ${prev.maxWeight} → ${cur.maxWeight} кг</span><span class="${diff>0?'delta-up':diff<0?'delta-down':''}">${diff>0?'+':''}${diff} кг</span></div><div class="muted small">Объём: ${prev.volume} → ${cur.volume} кг×повт. (${volDiff>0?'+':''}${volDiff})</div></div>`);
+ });
+ document.getElementById('comparison').innerHTML=rows.join('')||'Для сравнения нужно записать одно и то же упражнение как минимум в двух тренировках. Тогда здесь появится изменение рабочего веса и объёма.';
+ const best={};sets.forEach(x=>best[x.name]=Math.max(best[x.name]||0,x.weight));
+ document.getElementById('bestResults').innerHTML=Object.entries(best).map(([n,w])=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${n}</span><b>${w} кг</b></div>`).join('')||'Пока нет данных.';
+}
 function exportData(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='vanya-fitness-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
 function importData(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.sessions))throw Error();db=d;save();alert('Резервная копия восстановлена.')}catch(e){alert('Не удалось прочитать файл резервной копии.')}};r.readAsText(f)}
 function clearData(){if(confirm('Удалить все тренировки с этого устройства? Сначала скачай резервную копию.')){db=structuredClone(defaults);save()}}
