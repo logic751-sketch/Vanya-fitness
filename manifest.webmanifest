@@ -1,0 +1,10 @@
+{
+  "name": "Vanya Fitness",
+  "short_name": "Vanya Fit",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f3f6f7",
+  "theme_color": "#142b38",
+  "lang": "ru",
+  "description": "Персональный тренировочный дневник Вани"
+}
