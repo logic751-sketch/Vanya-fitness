@@ -11,11 +11,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -35,8 +30,7 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      # Debug APK is for development only. Do not install it as an update
-      # over a release-signed app.
+      # Debug APK is for development only, not for updating a release-signed app.
       - name: Build debug APK
         run: gradle assembleDebug
       - name: Upload debug APK
@@ -47,23 +41,28 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # A stable release signature is enabled only after all four secrets exist.
-      - name: Prepare persistent release signing key
-        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != '' }}
+      - name: Build signed release APK when signing secrets are configured
+        id: release
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Release signing secrets are not configured yet; skipping release APK."
+            exit 0
+          fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/vanya-release.jks"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/vanya-release.jks" >> "$GITHUB_ENV"
-      - name: Build signed release APK
-        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != '' }}
-        run: gradle assembleRelease
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          gradle assembleRelease
       - name: Upload signed release APK
-        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != '' }}
+        if: steps.release.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: Vanya-Fitness-release-APK
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
-      - name: Explain release signing setup
-        if: ${{ env.ANDROID_KEYSTORE_BASE64 == '' || env.ANDROID_KEYSTORE_PASSWORD == '' || env.ANDROID_KEY_ALIAS == '' || env.ANDROID_KEY_PASSWORD == '' }}
-        run: echo "Release APK not built: configure all four ANDROID_* repository Actions secrets first."
