@@ -13,7 +13,7 @@ import android.util.Base64
  */
 object BackupManager {
     private const val FORMAT = "vanya-fitness-backup"
-    private const val VERSION = 1
+    private const val VERSION = 2
 
     suspend fun export(context: Context, db: FitnessDatabase, uri: Uri) {
         val dao = db.dao()
@@ -42,6 +42,21 @@ object BackupManager {
                     .put("setNumber", s.setNumber).put("weightKg", s.weightKg)
                     .put("reps", s.reps)) }
             })
+            .put("programs", JSONArray().apply {
+                dao.allPrograms().forEach { p -> put(JSONObject()
+                    .put("id", p.id).put("name", p.name).put("description", p.description)
+                    .put("sortOrder", p.sortOrder)) }
+            })
+            .put("programDays", JSONArray().apply {
+                dao.allProgramDays().forEach { d -> put(JSONObject()
+                    .put("id", d.id).put("programId", d.programId).put("name", d.name)
+                    .put("sortOrder", d.sortOrder)) }
+            })
+            .put("programDayExercises", JSONArray().apply {
+                dao.allProgramDayExercises().forEach { e -> put(JSONObject()
+                    .put("id", e.id).put("dayId", e.dayId).put("templateId", e.templateId)
+                    .put("sortOrder", e.sortOrder)) }
+            })
             .put("templates", JSONArray().apply {
                 templates.forEach { t -> put(JSONObject()
                     .put("id", t.id).put("programName", t.programName)
@@ -62,12 +77,16 @@ object BackupManager {
         } ?: error("Не удалось прочитать файл.")
         val root = JSONObject(json)
         require(root.optString("format") == FORMAT) { "Это не резервная копия Vanya Fitness." }
-        require(root.optInt("version", -1) == VERSION) { "Версия резервной копии не поддерживается." }
+        val backupVersion = root.optInt("version", -1)
+        require(backupVersion in 1..VERSION) { "Версия резервной копии не поддерживается." }
 
         val workouts = root.getJSONArray("workouts").toWorkouts()
         val exercises = root.getJSONArray("exercises").toExercises()
         val sets = root.getJSONArray("sets").toSets()
         val templateArray = root.getJSONArray("templates")
+        val programs = if (backupVersion >= 2) root.getJSONArray("programs").toPrograms() else emptyList()
+        val programDays = if (backupVersion >= 2) root.getJSONArray("programDays").toProgramDays() else emptyList()
+        val dayExercises = if (backupVersion >= 2) root.getJSONArray("programDayExercises").toProgramDayExercises() else emptyList()
         val photoFolder = java.io.File(context.filesDir, "exercise_photos").apply { mkdirs() }
         val templates = templateArray.toTemplates().map { template ->
             val encoded = (0 until templateArray.length()).map { templateArray.getJSONObject(it) }
@@ -85,13 +104,25 @@ object BackupManager {
         require(exercises.all { it.workoutId in workoutIds }) { "В копии найдены упражнения без тренировки." }
         require(sets.all { it.exerciseId in exerciseIds }) { "В копии найдены подходы без упражнения." }
 
+        val programIds = programs.map { it.id }.toSet()
+        val dayIds = programDays.map { it.id }.toSet()
+        val templateIds = templates.map { it.id }.toSet()
+        require(programDays.all { it.programId in programIds }) { "В копии найдены дни без программы." }
+        require(dayExercises.all { it.dayId in dayIds && it.templateId in templateIds }) { "В копии найдены упражнения без программы или дня." }
+
         db.withTransaction {
             val dao = db.dao()
             dao.clearSets()
             dao.clearExercises()
             dao.clearWorkouts()
             dao.clearTemplates()
+            dao.clearAllProgramDayExercises()
+            dao.clearAllProgramDays()
+            dao.clearPrograms()
             dao.insertTemplates(templates)
+            dao.insertPrograms(programs)
+            dao.insertProgramDays(programDays)
+            dao.insertProgramDayExercises(dayExercises)
             dao.insertWorkouts(workouts)
             dao.insertExercises(exercises)
             dao.insertSets(sets)
@@ -107,6 +138,18 @@ object BackupManager {
         } catch (_: Exception) { null }
     }
 
+    private fun JSONArray.toPrograms() = (0 until length()).map { i ->
+        getJSONObject(i).let { TrainingProgram(it.getLong("id"), it.getString("name"),
+            it.optString("description"), it.optInt("sortOrder")) }
+    }
+    private fun JSONArray.toProgramDays() = (0 until length()).map { i ->
+        getJSONObject(i).let { ProgramDay(it.getLong("id"), it.getLong("programId"),
+            it.getString("name"), it.optInt("sortOrder")) }
+    }
+    private fun JSONArray.toProgramDayExercises() = (0 until length()).map { i ->
+        getJSONObject(i).let { ProgramDayExercise(it.getLong("id"), it.getLong("dayId"),
+            it.getLong("templateId"), it.optInt("sortOrder")) }
+    }
     private fun JSONArray.toWorkouts() = (0 until length()).map { i ->
         getJSONObject(i).let { Workout(it.getLong("id"), it.getInt("number"), it.getString("date"), it.getString("program")) }
     }
