@@ -57,12 +57,20 @@ jobs:
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/vanya-release.jks" >> "$GITHUB_ENV"
           echo "ready=true" >> "$GITHUB_OUTPUT"
           gradle assembleRelease
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+          APK_PATH="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          if [ -z "$APK_PATH" ]; then
+            echo "Release APK was not found in app/build/outputs/apk/release." >&2
+            find app/build/outputs -maxdepth 4 -type f -print
+            exit 1
+          fi
+          echo "Verifying $APK_PATH"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK_PATH"
+          echo "APK_PATH=$APK_PATH" >> "$GITHUB_ENV"
       - name: Upload signed release APK
         if: steps.release.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: Vanya-Fitness-release-APK
-          path: app/build/outputs/apk/release/app-release.apk
+          path: ${{ env.APK_PATH }}
           if-no-files-found: error
           retention-days: 30
