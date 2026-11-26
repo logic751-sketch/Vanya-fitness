@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.room.withTransaction
 import org.json.JSONArray
 import org.json.JSONObject
+import android.util.Base64
 
 /**
  * Portable JSON backup for all workout history and the exercise library.
@@ -45,7 +46,8 @@ object BackupManager {
                 templates.forEach { t -> put(JSONObject()
                     .put("id", t.id).put("programName", t.programName)
                     .put("name", t.name).put("muscleGroup", t.muscleGroup)
-                    .put("imageUri", t.imageUri ?: JSONObject.NULL)
+                     .put("imageUri", t.imageUri ?: JSONObject.NULL)
+                    .put("imageBase64", encodePhoto(context, t.imageUri) ?: JSONObject.NULL)
                     .put("sortOrder", t.sortOrder)) }
             })
 
@@ -65,7 +67,18 @@ object BackupManager {
         val workouts = root.getJSONArray("workouts").toWorkouts()
         val exercises = root.getJSONArray("exercises").toExercises()
         val sets = root.getJSONArray("sets").toSets()
-        val templates = root.getJSONArray("templates").toTemplates()
+        val templateArray = root.getJSONArray("templates")
+        val photoFolder = java.io.File(context.filesDir, "exercise_photos").apply { mkdirs() }
+        val templates = templateArray.toTemplates().map { template ->
+            val encoded = (0 until templateArray.length()).map { templateArray.getJSONObject(it) }
+                .firstOrNull { it.getLong("id") == template.id }
+                ?.let { it.optString("imageBase64").takeIf { value -> value.isNotBlank() && value != "null" } }
+            if (encoded != null) {
+                val photo = java.io.File(photoFolder, "exercise_" + template.id + ".jpg")
+                photo.writeBytes(Base64.decode(encoded, Base64.DEFAULT))
+                template.copy(imageUri = Uri.fromFile(photo).toString())
+            } else template
+        }
 
         val workoutIds = workouts.map { it.id }.toSet()
         val exerciseIds = exercises.map { it.id }.toSet()
@@ -83,6 +96,15 @@ object BackupManager {
             dao.insertExercises(exercises)
             dao.insertSets(sets)
         }
+    }
+
+    private fun encodePhoto(context: Context, imageUri: String?): String? {
+        if (imageUri.isNullOrBlank()) return null
+        return try {
+            context.contentResolver.openInputStream(Uri.parse(imageUri))?.use { input ->
+                Base64.encodeToString(input.readBytes(), Base64.NO_WRAP)
+            }
+        } catch (_: Exception) { null }
     }
 
     private fun JSONArray.toWorkouts() = (0 until length()).map { i ->
