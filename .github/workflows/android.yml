@@ -2,7 +2,7 @@ name: Build Vanya Fitness APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "v3-redesign" ]
   workflow_dispatch:
 
 permissions:
