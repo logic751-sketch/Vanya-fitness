@@ -298,7 +298,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     val activeProgram = programs.firstOrNull { it.id == selectedProgramId } ?: programs.firstOrNull()
                     LaunchedEffect(programs) { if (selectedProgramId == null && programs.isNotEmpty()) selectedProgramId = programs.first().id }
                     val availableDays = programDays.filter { it.programId == activeProgram?.id }.sortedBy { it.sortOrder }
-                    LaunchedEffect(availableDays) { if (selectedDayId !in availableDays.map { it.id }) selectedDayId = availableDays.firstOrNull()?.id }
+                    LaunchedEffect(availableDays) { if (selectedDayId == null || availableDays.none { it.id == selectedDayId }) selectedDayId = availableDays.firstOrNull()?.id }
                     var programMenu by remember { mutableStateOf(false) }
                     var dayMenu by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(programMenu, { programMenu = it }) {
@@ -851,7 +851,8 @@ private fun MoreMenuScreen(
     onExercises: () -> Unit,
     onAnalytics: () -> Unit,
     onBackup: () -> Unit,
-    onProfile: () -> Unit
+    onProfile: () -> Unit,
+    onPrograms: () -> Unit
 ) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
