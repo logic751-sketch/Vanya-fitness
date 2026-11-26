@@ -130,6 +130,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
     var workoutDate by remember { mutableStateOf(today()) }
     var setDrafts by remember { mutableStateOf<Map<Long, List<SetDraft>>>(emptyMap()) }
     var status by remember { mutableStateOf("") }
+    var completedSummary by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<TemplateDraft?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var pendingPhotoId by remember { mutableStateOf<Long?>(null) }
@@ -355,6 +356,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                                         dao.addSets(sets.map { it.copy(exerciseId = exerciseId) })
                                     }
                                     status = "Тренировка №$number сохранена."
+                                    completedSummary = "Тренировка №$number · $selectedProgram\nДата: $workoutDate\nУпражнений: ${values.size}\nПодходов: ${values.sumOf { it.second.size }}\nОбщий объём: ${values.sumOf { pair -> pair.second.sumOf { it.weightKg * it.reps } }.toInt()} кг·повт."
                                     setDrafts = emptyMap()
                                     page = 3
                                 }
@@ -466,6 +468,13 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                 }
             }
         }
+    }
+
+    if (completedSummary != null) {
+        AlertDialog(onDismissRequest = { completedSummary = null },
+            title = { Text("Тренировка завершена! 💪") },
+            text = { Text(completedSummary!!) },
+            confirmButton = { TextButton(onClick = { completedSummary = null }) { Text("Отлично") } })
     }
 
     if (showRestoreConfirm) {
