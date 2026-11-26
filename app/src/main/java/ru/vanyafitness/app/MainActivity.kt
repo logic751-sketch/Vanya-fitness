@@ -863,7 +863,8 @@ private fun MoreMenuScreen(
         DashboardTile("БИБЛИОТЕКА УПРАЖНЕНИЙ", "Программы, порядок и фотографии", "💪",
             MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onExercises)
         DashboardTile("КОНСТРУКТОР ПРОГРАММ", "Создавай программы и собирай дни из библиотеки", "🧩",
-            MaterialTheme.colorScheme.primary, Modifier.fillMaxWidth(), onPrograms)\n        DashboardTile("ПРОФИЛЬ И ДОСТИЖЕНИЯ", "Параметры, календарь и награды", "🏆",
+            MaterialTheme.colorScheme.primary, Modifier.fillMaxWidth(), onPrograms)
+        DashboardTile("ПРОФИЛЬ И ДОСТИЖЕНИЯ", "Параметры, календарь и награды", "🏆",
             MaterialTheme.colorScheme.primary, Modifier.fillMaxWidth(), onProfile)
         DashboardTile("РЕЗЕРВНАЯ КОПИЯ", "Сохранить или перенести историю", "⟲",
             MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onBackup)
