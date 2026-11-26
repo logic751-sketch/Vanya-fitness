@@ -713,7 +713,9 @@ private fun ProfileProgressScreen(modifier: Modifier, workouts: List<WorkoutWith
                 Text("📅 КАЛЕНДАРЬ АКТИВНОСТИ", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
                 Text("Последние 7 дней", style = MaterialTheme.typography.bodySmall)
                 val recent = (0..6).map { offset ->
-                    val date = java.time.LocalDate.now().minusDays((6 - offset).toLong()).toString()
+                    val calendar = java.util.Calendar.getInstance()
+                    calendar.add(java.util.Calendar.DAY_OF_YEAR, offset - 6)
+                    val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
                     date to dates.contains(date)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
