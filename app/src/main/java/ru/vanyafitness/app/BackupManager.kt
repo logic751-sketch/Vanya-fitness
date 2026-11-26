@@ -76,6 +76,11 @@ object BackupManager {
             it.readText()
         } ?: error("Не удалось прочитать файл.")
         val root = JSONObject(json)
+        // Legacy workout-log backup used by the earlier lightweight app.
+        if (root.has("sessions") && !root.has("format")) {
+            restoreLegacySessions(db, root)
+            return
+        }
         require(root.optString("format") == FORMAT) { "Это не резервная копия Vanya Fitness." }
         val backupVersion = root.optInt("version", -1)
         require(backupVersion in 1..VERSION) { "Версия резервной копии не поддерживается." }
@@ -126,6 +131,52 @@ object BackupManager {
             dao.insertWorkouts(workouts)
             dao.insertExercises(exercises)
             dao.insertSets(sets)
+        }
+    }
+
+
+    private suspend fun restoreLegacySessions(db: FitnessDatabase, root: JSONObject) {
+        val sessions = root.getJSONArray("sessions")
+        val dao = db.dao()
+        val existingNumbers = dao.allWorkouts().map { it.number }.toSet()
+        val parsed = (0 until sessions.length()).map { sessions.getJSONObject(it) }
+        require(parsed.isNotEmpty()) { "В резервной копии нет тренировок." }
+        require(parsed.none { it.getInt("no") in existingNumbers }) {
+            "Тренировка с таким номером уже есть. Чтобы не создать дубликат, импорт остановлен."
+        }
+        db.withTransaction {
+            parsed.forEach { session ->
+                val programLabel = when (session.optString("program")) {
+                    "A" -> "Грудь, спина и руки"
+                    "B" -> "Ноги и плечи"
+                    else -> session.optString("program", "Тренировка")
+                }
+                val workoutId = dao.addWorkout(Workout(
+                    number = session.getInt("no"),
+                    date = session.optString("date"),
+                    program = programLabel
+                ))
+                val exercises = session.getJSONArray("exercises")
+                for (i in 0 until exercises.length()) {
+                    val item = exercises.getJSONObject(i)
+                    val exerciseId = dao.addExercise(Exercise(
+                        workoutId = workoutId,
+                        name = item.getString("name"),
+                        muscleGroup = "Не указано"
+                    ))
+                    val setsJson = item.getJSONArray("sets")
+                    val sets = (0 until setsJson.length()).map { index ->
+                        val set = setsJson.getJSONObject(index)
+                        TrainingSet(
+                            exerciseId = exerciseId,
+                            setNumber = index + 1,
+                            weightKg = set.getDouble("weight"),
+                            reps = set.getInt("reps")
+                        )
+                    }
+                    if (sets.isNotEmpty()) dao.addSets(sets)
+                }
+            }
         }
     }
 
