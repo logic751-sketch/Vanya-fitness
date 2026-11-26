@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,6 +17,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
@@ -130,7 +135,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
             topBar = { TopAppBar(title = { Text("VANYA FITNESS 2.0") }) },
             bottomBar = {
                 NavigationBar {
-                    listOf("Главная", "Тренировка", "Упражнения", "История").forEachIndexed { index, label ->
+                    listOf("Главная", "Тренировка", "Упражнения", "История", "Аналитика").forEachIndexed { index, label ->
                         NavigationBarItem(
                             selected = page == index,
                             onClick = { page = index },
@@ -345,7 +350,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     if (status.isNotBlank()) Text(status)
                 }
 
-                else -> LazyColumn(Modifier.padding(padding).padding(12.dp)) {
+                3 -> LazyColumn(Modifier.padding(padding).padding(12.dp)) {
                     item { Text("История тренировок", style = MaterialTheme.typography.headlineSmall) }
                     items(workouts, key = { it.workout.id }) { workout ->
                         Card(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
@@ -365,6 +370,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                         }
                     }
                 }
+                else -> AnalyticsScreen(workouts)
             }
         }
     }
@@ -374,58 +380,158 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
         var name by remember(draft.id) { mutableStateOf(draft.name) }
         var muscle by remember(draft.id) { mutableStateOf(draft.muscle) }
         var program by remember(draft.id) { mutableStateOf(draft.program) }
-        AlertDialog(
-            onDismissRequest = { showEditor = false; editing = null },
-            title = { Text(if (draft.id == null) "Новое упражнение" else "Изменить упражнение") },
-            text = {
-                Column {
-                    OutlinedTextField(name, { name = it }, label = { Text("Название") })
-                    OutlinedTextField(muscle, { muscle = it }, label = { Text("Группа мышц") })
-                    var open by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(open, { open = it }) {
-                        OutlinedTextField(
-                            value = program, onValueChange = {}, readOnly = true,
-                            label = { Text("Программа") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-                            modifier = Modifier.menuAnchor()
-                        )
-                        ExposedDropdownMenu(open, { open = false }) {
-                            PROGRAMS.forEach { option ->
-                                DropdownMenuItem(text = { Text(option) }, onClick = { program = option; open = false })
+        var muscleMenu by remember { mutableStateOf(false) }
+        var programMenu by remember { mutableStateOf(false) }
+        val muscleOptions = listOf("Грудь", "Спина", "Плечи", "Бицепс", "Трицепс", "Предплечья", "Ноги", "Ягодицы", "Икры", "Пресс")
+        Dialog(onDismissRequest = { showEditor = false; editing = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            Surface(Modifier.fillMaxWidth().padding(horizontal = 14.dp).heightIn(max = 680.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp)) {
+                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(if (draft.id == null) "Новое упражнение" else "Изменить упражнение",
+                        style = MaterialTheme.typography.headlineSmall)
+                    OutlinedTextField(name, { name = it }, label = { Text("Название упражнения") },
+                        modifier = Modifier.fillMaxWidth())
+                    ExposedDropdownMenuBox(muscleMenu, { muscleMenu = it }) {
+                        OutlinedTextField(muscle, { muscle = it; muscleMenu = true },
+                            label = { Text("Группа мышц — можно вписать свою") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(muscleMenu) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(), singleLine = true)
+                        ExposedDropdownMenu(muscleMenu, { muscleMenu = false }) {
+                            muscleOptions.filter { muscle.isBlank() || it.contains(muscle, true) }.forEach { option ->
+                                DropdownMenuItem(text = { Text(option) },
+                                    onClick = { muscle = option; muscleMenu = false })
                             }
                         }
+                    }
+                    ExposedDropdownMenuBox(programMenu, { programMenu = it }) {
+                        OutlinedTextField(program, {}, readOnly = true, label = { Text("Программа тренировки") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(programMenu) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth())
+                        ExposedDropdownMenu(programMenu, { programMenu = false }) {
+                            PROGRAMS.forEach { option -> DropdownMenuItem(text = { Text(option) },
+                                onClick = { program = option; programMenu = false }) }
+                        }
+                    }
+                    Text("Группу мышц можно выбрать или вписать вручную. Всё окно прокручивается.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(Modifier.weight(1f), onClick = { showEditor = false; editing = null }) { Text("Отмена") }
+                        Button(Modifier.weight(1f), enabled = name.isNotBlank() && muscle.isNotBlank(), onClick = {
+                            scope.launch {
+                                if (draft.id == null) {
+                                    dao.addTemplate(ExerciseTemplate(programName = program, name = name.trim(),
+                                        muscleGroup = muscle.trim(), sortOrder = templates.count { it.programName == program }))
+                                } else {
+                                    val old = templates.firstOrNull { it.id == draft.id }
+                                    if (old != null) dao.updateTemplate(old.copy(programName = program, name = name.trim(),
+                                        muscleGroup = muscle.trim(), sortOrder = if (old.programName == program) old.sortOrder
+                                        else templates.count { it.programName == program }))
+                                }
+                                status = "Изменения сохранены."
+                                showEditor = false; editing = null
+                            }
+                        }) { Text("Сохранить") }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (name.isNotBlank() && muscle.isNotBlank()) {
-                        scope.launch {
-                            if (draft.id == null) {
-                                dao.addTemplate(ExerciseTemplate(
-                                    programName = program,
-                                    name = name.trim(),
-                                    muscleGroup = muscle.trim(),
-                                    sortOrder = templates.count { it.programName == program }
-                                ))
-                            } else {
-                                val old = templates.firstOrNull { it.id == draft.id }
-                                if (old != null) dao.updateTemplate(old.copy(
-                                    programName = program, name = name.trim(), muscleGroup = muscle.trim(),
-                                    sortOrder = if (old.programName == program) old.sortOrder else templates.count { it.programName == program }
-                                ))
-                            }
-                            status = "Изменения сохранены."
-                            showEditor = false
-                            editing = null
-                        }
-                    }
-                }) { Text("Сохранить") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditor = false; editing = null }) { Text("Отмена") }
             }
-        )
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AnalyticsScreen(workouts: List<WorkoutWithExercises>) {
+    val ordered = workouts.sortedBy { it.workout.number }
+    val exerciseNames = ordered.flatMap { it.exercises }.map { it.exercise.name }.distinct()
+    val muscleNames = ordered.flatMap { it.exercises }.map { it.exercise.muscleGroup }.distinct()
+    var selectedExercise by remember(exerciseNames) { mutableStateOf(exerciseNames.firstOrNull().orEmpty()) }
+    var selectedMuscle by remember(muscleNames) { mutableStateOf(muscleNames.firstOrNull().orEmpty()) }
+    var exerciseMenu by remember { mutableStateOf(false) }
+    var muscleMenu by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Аналитика прогресса", style = MaterialTheme.typography.headlineSmall)
+        Text("Рост рабочего веса", style = MaterialTheme.typography.titleMedium)
+        if (exerciseNames.isEmpty()) Text("График появится после сохранения тренировок.")
+        else {
+            ExposedDropdownMenuBox(exerciseMenu, { exerciseMenu = it }) {
+                OutlinedTextField(selectedExercise, {}, readOnly = true, label = { Text("Упражнение") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(exerciseMenu) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth())
+                ExposedDropdownMenu(exerciseMenu, { exerciseMenu = false }) {
+                    exerciseNames.forEach { n -> DropdownMenuItem(text = { Text(n) },
+                        onClick = { selectedExercise = n; exerciseMenu = false }) }
+                }
+            }
+            val data = ordered.mapNotNull { w ->
+                val weights = w.exercises.filter { it.exercise.name == selectedExercise }.flatMap { it.sets }.map { it.weightKg.toFloat() }
+                if (weights.isEmpty()) null else w.workout.number to (weights.maxOrNull() ?: 0f)
+            }
+            if (data.isEmpty()) Text("Нет записей по выбранному упражнению.")
+            else {
+                Text("Максимальный вес, кг", style = MaterialTheme.typography.labelMedium)
+                SimpleLineChart(data.map { it.second })
+                Text(data.joinToString("   ") { "№${it.first}: ${it.second} кг" }, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        HorizontalDivider()
+        Text("График целевых мышц", style = MaterialTheme.typography.titleMedium)
+        Text("Объём нагрузки: вес × повторения", style = MaterialTheme.typography.bodySmall)
+        if (muscleNames.isEmpty()) Text("Группы мышц появятся после сохранения тренировок.")
+        else {
+            ExposedDropdownMenuBox(muscleMenu, { muscleMenu = it }) {
+                OutlinedTextField(selectedMuscle, {}, readOnly = true, label = { Text("Группа мышц") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(muscleMenu) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth())
+                ExposedDropdownMenu(muscleMenu, { muscleMenu = false }) {
+                    muscleNames.forEach { m -> DropdownMenuItem(text = { Text(m) },
+                        onClick = { selectedMuscle = m; muscleMenu = false }) }
+                }
+            }
+            val data = ordered.mapNotNull { w ->
+                val total = w.exercises.filter { it.exercise.muscleGroup.equals(selectedMuscle, true) }
+                    .sumOf { ex -> ex.sets.sumOf { it.weightKg * it.reps } }.toFloat()
+                if (total <= 0f) null else w.workout.number to total
+            }
+            if (data.isEmpty()) Text("Пока нет данных по этой группе мышц.")
+            else {
+                SimpleLineChart(data.map { it.second })
+                Text(data.joinToString("   ") { "№${it.first}: ${it.second.toInt()} кг" },
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Text("Графики строятся по сохранённым тренировкам. История не изменяется.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun SimpleLineChart(values: List<Float>) {
+    if (values.isEmpty()) return
+    val line = MaterialTheme.colorScheme.primary
+    val grid = MaterialTheme.colorScheme.outlineVariant
+    Canvas(Modifier.fillMaxWidth().height(180.dp).padding(vertical = 8.dp)) {
+        val l = 8f; val r = size.width - 8f; val t = 10f; val b = size.height - 10f
+        repeat(4) { i ->
+            val y = t + (b - t) * i / 3f
+            drawLine(grid, androidx.compose.ui.geometry.Offset(l, y),
+                androidx.compose.ui.geometry.Offset(r, y), 1.dp.toPx())
+        }
+        val low = (values.minOrNull() ?: 0f).let { if (it > 0f) it * .85f else 0f }
+        val high = (values.maxOrNull() ?: 1f).let { if (it > low) it * 1.08f else low + 1f }
+        val pts = values.mapIndexed { i, v ->
+            val x = if (values.size == 1) (l + r) / 2f else l + (r - l) * i / (values.size - 1).toFloat()
+            val y = b - (v - low) / (high - low) * (b - t)
+            androidx.compose.ui.geometry.Offset(x, y)
+        }
+        if (pts.size > 1) {
+            val p = Path().apply { moveTo(pts.first().x, pts.first().y); pts.drop(1).forEach { lineTo(it.x, it.y) } }
+            drawPath(p, line, style = Stroke(3.dp.toPx()))
+        }
+        pts.forEach { drawCircle(line, 5.dp.toPx(), it) }
     }
 }
 
