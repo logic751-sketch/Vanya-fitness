@@ -153,33 +153,62 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (_: Exception) { }
             scope.launch {
-                val id = pendingPhotoId
-                if (id != null) {
-                    val item = templates.firstOrNull { it.id == id }
-                    if (item != null) dao.updateTemplate(item.copy(imageUri = uri.toString()))
-                } else if (pendingPhotoForNew) {
-                    val draft = editing
-                    if (draft != null) {
-                        val newId = dao.addTemplate(ExerciseTemplate(
-                            programName = draft.program,
-                            name = draft.name.trim(),
-                            muscleGroup = draft.muscle.trim(),
-                            imageUri = uri.toString(),
-                            sortOrder = templates.count { it.programName == draft.program }
-                        ))
-                        status = "Упражнение добавлено с фотографией."
+                try {
+                    val mime = context.contentResolver.getType(uri).orEmpty()
+                    val extension = when {
+                        mime.contains("png", ignoreCase = true) -> "png"
+                        mime.contains("webp", ignoreCase = true) -> "webp"
+                        else -> "jpg"
                     }
+                    val photoFile = java.io.File(
+                        context.filesDir,
+                        "exercise_photo_${System.currentTimeMillis()}.$extension"
+                    )
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        photoFile.outputStream().use { output -> input.copyTo(output) }
+                    } ?: error("Не удалось открыть выбранное изображение")
+                    val savedUri = Uri.fromFile(photoFile).toString()
+                    val id = pendingPhotoId
+                    if (id != null) {
+                        val item = templates.firstOrNull { it.id == id }
+                        if (item != null) {
+                            dao.updateTemplate(item.copy(imageUri = savedUri))
+                            status = "Фотография упражнения сохранена."
+                        } else {
+                            photoFile.delete()
+                            status = "Упражнение не найдено. Обнови список и попробуй ещё раз."
+                        }
+                    } else if (pendingPhotoForNew) {
+                        val draft = editing
+                        if (draft != null) {
+                            dao.addTemplate(ExerciseTemplate(
+                                programName = draft.program,
+                                name = draft.name.trim(),
+                                muscleGroup = draft.muscle.trim(),
+                                imageUri = savedUri,
+                                sortOrder = templates.count { it.programName == draft.program }
+                            ))
+                            status = "Упражнение добавлено с фотографией."
+                        } else {
+                            photoFile.delete()
+                            status = "Сначала заполни название упражнения."
+                        }
+                    } else {
+                        photoFile.delete()
+                        status = "Не удалось определить упражнение для фотографии."
+                    }
+                } catch (e: Exception) {
+                    status = "Не удалось сохранить фото: ${e.localizedMessage ?: "ошибка доступа к файлу"}"
+                } finally {
+                    pendingPhotoId = null
+                    pendingPhotoForNew = false
                 }
             }
+        } else {
+            pendingPhotoId = null
+            pendingPhotoForNew = false
         }
-        pendingPhotoId = null
-        pendingPhotoForNew = false
     }
 
     val darkColors = darkColorScheme(
