@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val dao = FitnessDatabase.get(this).dao()
-        lifecycleScope.launch { seedTemplates(dao); importWorkout19(dao) }
+        lifecycleScope.launch { seedTemplates(dao); seedDefaultProgram(dao); importWorkout19(dao) }
         setContent { VanyaFitnessApp(dao) }
     }
 }
@@ -81,6 +81,19 @@ private suspend fun seedTemplates(dao: FitnessDao) {
                 sortOrder = index
             ))
         }
+    }
+}
+
+
+private suspend fun seedDefaultProgram(dao: FitnessDao) {
+    if (dao.allPrograms().isNotEmpty()) return
+    val programId = dao.addProgram(TrainingProgram(name = "Базовая программа", description = "Стартовый план Вани"))
+    listOf(PROGRAM_A, PROGRAM_B).forEachIndexed { dayIndex, dayName ->
+        val dayId = dao.addProgramDay(ProgramDay(programId = programId, name = dayName, sortOrder = dayIndex))
+        dao.allTemplates().filter { it.programName == dayName }.sortedBy { it.sortOrder }
+            .forEachIndexed { index, template ->
+                dao.addProgramDayExercise(ProgramDayExercise(dayId = dayId, templateId = template.id, sortOrder = index))
+            }
     }
 }
 
@@ -124,9 +137,14 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
     val scope = rememberCoroutineScope()
     val workouts by dao.observeAll().collectAsState(initial = emptyList())
     val templates by dao.observeTemplates().collectAsState(initial = emptyList())
+    val programs by dao.observePrograms().collectAsState(initial = emptyList())
+    val programDays by dao.observeProgramDays().collectAsState(initial = emptyList())
+    val dayExercises by dao.observeProgramDayExercises().collectAsState(initial = emptyList())
 
     var page by remember { mutableIntStateOf(0) }
     var selectedProgram by remember { mutableStateOf(PROGRAM_A) }
+    var selectedProgramId by remember { mutableStateOf<Long?>(null) }
+    var selectedDayId by remember { mutableStateOf<Long?>(null) }
     var workoutDate by remember { mutableStateOf(today()) }
     var setDrafts by remember { mutableStateOf<Map<Long, List<SetDraft>>>(emptyMap()) }
     var status by remember { mutableStateOf("") }
@@ -277,28 +295,38 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                         label = { Text("Дата ГГГГ-ММ-ДД") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    var expanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(expanded, { expanded = it }) {
-                        OutlinedTextField(
-                            value = selectedProgram,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Программа") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(expanded, { expanded = false }) {
-                            templates.map { it.programName }.distinct().forEach { program ->
-                                DropdownMenuItem(text = { Text(program) }, onClick = {
-                                    selectedProgram = program
-                                    setDrafts = emptyMap()
-                                    expanded = false
-                                })
-                            }
+                    val activeProgram = programs.firstOrNull { it.id == selectedProgramId } ?: programs.firstOrNull()
+                    LaunchedEffect(programs) { if (selectedProgramId == null && programs.isNotEmpty()) selectedProgramId = programs.first().id }
+                    val availableDays = programDays.filter { it.programId == activeProgram?.id }.sortedBy { it.sortOrder }
+                    LaunchedEffect(availableDays) { if (selectedDayId !in availableDays.map { it.id }) selectedDayId = availableDays.firstOrNull()?.id }
+                    var programMenu by remember { mutableStateOf(false) }
+                    var dayMenu by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(programMenu, { programMenu = it }) {
+                        OutlinedTextField(activeProgram?.name ?: "Нет программ", {}, readOnly = true,
+                            label = { Text("Программа") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(programMenu) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth())
+                        ExposedDropdownMenu(programMenu, { programMenu = false }) {
+                            programs.forEach { p -> DropdownMenuItem(text = { Text(p.name) }, onClick = {
+                                selectedProgramId = p.id; selectedDayId = null; setDrafts = emptyMap(); programMenu = false
+                            }) }
+                        }
+                    }
+                    ExposedDropdownMenuBox(dayMenu, { dayMenu = it }) {
+                        OutlinedTextField(availableDays.firstOrNull { it.id == selectedDayId }?.name ?: "Нет тренировочных дней", {},
+                            readOnly = true, label = { Text("Тренировочный день") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(dayMenu) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth())
+                        ExposedDropdownMenu(dayMenu, { dayMenu = false }) {
+                            availableDays.forEach { d -> DropdownMenuItem(text = { Text(d.name) }, onClick = {
+                                selectedDayId = d.id; setDrafts = emptyMap(); dayMenu = false
+                            }) }
                         }
                     }
 
-                    val chosen = templates.filter { it.programName == selectedProgram }.sortedBy { it.sortOrder }
+                    val chosenIds = dayExercises.filter { it.dayId == selectedDayId }.sortedBy { it.sortOrder }.map { it.templateId }.toSet()
+                    val chosen = templates.filter { it.id in chosenIds }.sortedBy { template ->
+                        dayExercises.firstOrNull { it.dayId == selectedDayId && it.templateId == template.id }?.sortOrder ?: Int.MAX_VALUE
+                    }
                     if (chosen.isEmpty()) Text("В этой программе пока нет упражнений. Добавь их во вкладке «Упражнения».")
                     chosen.forEach { item ->
                         val previousSets = remember(item.id, workouts) {
@@ -377,7 +405,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                                 } else {
                                     val number = (dao.maxNumber() ?: 18) + 1
                                     val workoutId = dao.addWorkout(Workout(
-                                        number = number, date = workoutDate, program = selectedProgram
+                                        number = number, date = workoutDate, program = "${activeProgram?.name ?: "Программа"} · ${availableDays.firstOrNull { it.id == selectedDayId }?.name ?: "День"}"
                                     ))
                                     values.forEach { (template, sets) ->
                                         val exerciseId = dao.addExercise(Exercise(
@@ -388,7 +416,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                                         dao.addSets(sets.map { it.copy(exerciseId = exerciseId) })
                                     }
                                     status = "Тренировка №$number сохранена."
-                                    completedSummary = "Тренировка №$number · $selectedProgram\nДата: $workoutDate\nУпражнений: ${values.size}\nПодходов: ${values.sumOf { it.second.size }}\nОбщий объём: ${values.sumOf { pair -> pair.second.sumOf { it.weightKg * it.reps } }.toInt()} кг·повт."
+                                    completedSummary = "Тренировка №$number · ${activeProgram?.name ?: "Программа"} / ${availableDays.firstOrNull { it.id == selectedDayId }?.name ?: "День"}\nДата: $workoutDate\nУпражнений: ${values.size}\nПодходов: ${values.sumOf { it.second.size }}\nОбщий объём: ${values.sumOf { pair -> pair.second.sumOf { it.weightKg * it.reps } }.toInt()} кг·повт."
                                     setDrafts = emptyMap()
                                     page = 3
                                 }
@@ -483,6 +511,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     }
                 }
                 4 -> AnalyticsScreen(workouts)
+                8 -> ProgramBuilderScreen(Modifier.padding(padding), dao, programs, programDays, dayExercises, templates, status) { status = it }
                 6 -> ProfileProgressScreen(Modifier.padding(padding), workouts)
                 7 -> MoreMenuScreen(
                     modifier = Modifier.padding(padding),
@@ -597,6 +626,124 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
     }
 }
 
+
+
+@Composable
+private fun ProgramBuilderScreen(
+    modifier: Modifier,
+    dao: FitnessDao,
+    programs: List<TrainingProgram>,
+    days: List<ProgramDay>,
+    links: List<ProgramDayExercise>,
+    templates: List<ExerciseTemplate>,
+    status: String,
+    onStatus: (String) -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var selectedProgramId by remember(programs) { mutableStateOf(programs.firstOrNull()?.id) }
+    val selectedProgram = programs.firstOrNull { it.id == selectedProgramId }
+    val programDays = days.filter { it.programId == selectedProgramId }.sortedBy { it.sortOrder }
+    var selectedDayId by remember(programDays) { mutableStateOf(programDays.firstOrNull()?.id) }
+    val selectedDay = programDays.firstOrNull { it.id == selectedDayId }
+    var showNewProgram by remember { mutableStateOf(false) }
+    var showNewDay by remember { mutableStateOf(false) }
+    var showExercisePicker by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+    var expandedProgram by remember { mutableStateOf(false) }
+    var expandedDay by remember { mutableStateOf(false) }
+    val chosen = links.filter { it.dayId == selectedDayId }.sortedBy { it.sortOrder }
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Конструктор программ", style = MaterialTheme.typography.headlineSmall)
+        Text("Создай программу на нужный период, добавь тренировочные дни и собери каждый день из общей библиотеки упражнений.")
+        ExposedDropdownMenuBox(expandedProgram, { expandedProgram = it }) {
+            OutlinedTextField(selectedProgram?.name ?: "Нет программ", {}, readOnly = true,
+                label = { Text("Программа") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedProgram) },
+                modifier = Modifier.menuAnchor().fillMaxWidth())
+            ExposedDropdownMenu(expandedProgram, { expandedProgram = false }) {
+                programs.forEach { p -> DropdownMenuItem(text = { Text(p.name) }, onClick = {
+                    selectedProgramId = p.id; expandedProgram = false
+                }) }
+            }
+        }
+        Button(onClick = { newName = ""; showNewProgram = true }, modifier = Modifier.fillMaxWidth()) { Text("＋ Создать программу") }
+        if (selectedProgram != null) {
+            ExposedDropdownMenuBox(expandedDay, { expandedDay = it }) {
+                OutlinedTextField(selectedDay?.name ?: "Нет дней", {}, readOnly = true,
+                    label = { Text("Тренировочный день") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedDay) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth())
+                ExposedDropdownMenu(expandedDay, { expandedDay = false }) {
+                    programDays.forEach { d -> DropdownMenuItem(text = { Text(d.name) }, onClick = {
+                        selectedDayId = d.id; expandedDay = false
+                    }) }
+                }
+            }
+            OutlinedButton(onClick = { newName = ""; showNewDay = true }, modifier = Modifier.fillMaxWidth()) { Text("＋ Добавить тренировочный день") }
+        }
+        if (selectedDay != null) {
+            Text("Упражнения · ${selectedDay.name}", style = MaterialTheme.typography.titleLarge)
+            if (chosen.isEmpty()) Text("Пока нет упражнений. Добавь их из библиотеки.")
+            chosen.forEachIndexed { index, link ->
+                val template = templates.firstOrNull { it.id == link.templateId }
+                if (template != null) Card(Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${index + 1}. ${template.name}", style = MaterialTheme.typography.titleMedium)
+                            Text(template.muscleGroup, style = MaterialTheme.typography.bodySmall)
+                        }
+                        TextButton(onClick = { scope.launch { dao.clearDayExercises(selectedDay.id); chosen.filter { it.id != link.id }.forEachIndexed { n, item -> dao.addProgramDayExercise(item.copy(id = 0, sortOrder = n)) } } }) { Text("Убрать") }
+                    }
+                }
+            }
+            Button(onClick = { showExercisePicker = true }, modifier = Modifier.fillMaxWidth()) { Text("＋ Добавить упражнения из библиотеки") }
+        }
+        if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
+    }
+    if (showNewProgram) AlertDialog(onDismissRequest = { showNewProgram = false },
+        title = { Text("Новая программа") },
+        text = { OutlinedTextField(newName, { newName = it }, label = { Text("Название, например «Месяц 1»") }) },
+        confirmButton = { TextButton(enabled = newName.isNotBlank(), onClick = {
+            scope.launch { val id = dao.addProgram(TrainingProgram(name = newName.trim(), sortOrder = programs.size)); selectedProgramId = id; selectedDayId = null; onStatus("Программа создана.") }
+            showNewProgram = false
+        }) { Text("Создать") } },
+        dismissButton = { TextButton(onClick = { showNewProgram = false }) { Text("Отмена") } })
+    if (showNewDay) AlertDialog(onDismissRequest = { showNewDay = false },
+        title = { Text("Новый тренировочный день") },
+        text = { OutlinedTextField(newName, { newName = it }, label = { Text("Например, День А — верх тела") }) },
+        confirmButton = { TextButton(enabled = newName.isNotBlank(), onClick = {
+            scope.launch { val id = dao.addProgramDay(ProgramDay(programId = selectedProgram!!.id, name = newName.trim(), sortOrder = programDays.size)); selectedDayId = id; onStatus("Тренировочный день создан.") }
+            showNewDay = false
+        }) { Text("Добавить") } },
+        dismissButton = { TextButton(onClick = { showNewDay = false }) { Text("Отмена") } })
+    if (showExercisePicker && selectedDay != null) {
+        var selectedIds by remember { mutableStateOf(chosen.map { it.templateId }.toSet()) }
+        AlertDialog(onDismissRequest = { showExercisePicker = false },
+            title = { Text("Выбери упражнения") },
+            text = {
+                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                    templates.sortedWith(compareBy<ExerciseTemplate> { it.muscleGroup }.thenBy { it.name }).forEach { item ->
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Checkbox(checked = item.id in selectedIds, onCheckedChange = { checked ->
+                                selectedIds = if (checked) selectedIds + item.id else selectedIds - item.id
+                            })
+                            Column { Text(item.name); Text(item.muscleGroup, style = MaterialTheme.typography.bodySmall) }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = {
+                scope.launch {
+                    dao.clearDayExercises(selectedDay.id)
+                    templates.filter { it.id in selectedIds }.forEachIndexed { index, item ->
+                        dao.addProgramDayExercise(ProgramDayExercise(dayId = selectedDay.id, templateId = item.id, sortOrder = index))
+                    }
+                    onStatus("Состав тренировки сохранён.")
+                }
+                showExercisePicker = false
+            }) { Text("Сохранить") } },
+            dismissButton = { TextButton(onClick = { showExercisePicker = false }) { Text("Отмена") } })
+    }
+}
 
 @Composable
 private fun HomeDashboard(
@@ -714,7 +861,7 @@ private fun MoreMenuScreen(
             MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onHistory)
         DashboardTile("БИБЛИОТЕКА УПРАЖНЕНИЙ", "Программы, порядок и фотографии", "💪",
             MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onExercises)
-        DashboardTile("ПРОФИЛЬ И ДОСТИЖЕНИЯ", "Параметры, календарь и награды", "🏆",
+        DashboardTile("КОНСТРУКТОР ПРОГРАММ", "Создавай программы и собирай дни из библиотеки", "🧩",\n            MaterialTheme.colorScheme.primary, Modifier.fillMaxWidth(), onPrograms)\n        DashboardTile("ПРОФИЛЬ И ДОСТИЖЕНИЯ", "Параметры, календарь и награды", "🏆",
             MaterialTheme.colorScheme.primary, Modifier.fillMaxWidth(), onProfile)
         DashboardTile("РЕЗЕРВНАЯ КОПИЯ", "Сохранить или перенести историю", "⟲",
             MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onBackup)
