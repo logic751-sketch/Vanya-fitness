@@ -287,7 +287,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     if (status.isNotBlank()) Text(status)
                 }
 
-                2 -> Column(Modifier.padding(padding).padding(12.dp)) {
+                2 -> Column(Modifier.padding(padding).padding(12.dp).verticalScroll(rememberScrollState())) {
                     Text("Библиотека упражнений", style = MaterialTheme.typography.headlineSmall)
                     Text("Редактируй названия, группы мышц, порядок и фотографии.")
                     Spacer(Modifier.height(8.dp))
