@@ -815,6 +815,46 @@ private fun AnalyticsScreen(workouts: List<WorkoutWithExercises>) {
             }
         }
         HorizontalDivider()
+        HorizontalDivider()
+        Text("ЛИЧНЫЕ РЕКОРДЫ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        val records = ordered.flatMap { workout -> workout.exercises.mapNotNull { ex ->
+            val best = ex.sets.maxByOrNull { it.weightKg }
+            if (best == null) null else Triple(ex.exercise.name, best.weightKg, best.reps)
+        } }.groupBy { it.first }.mapValues { (_, entries) -> entries.maxBy { it.second } }
+        if (records.isEmpty()) Text("Рекорды появятся после сохранения подходов.")
+        else records.toList().sortedBy { it.first }.forEach { (name, record) ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(name, modifier = Modifier.weight(1f))
+                Text("${record.second} кг × ${record.third}", color = MaterialTheme.colorScheme.secondary)
+            }
+        }
+        HorizontalDivider()
+        Text("АКЦЕНТ: РАЗВИТИЕ ПЛЕЧ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        val shoulderVolume = ordered.mapNotNull { workout ->
+            val volume = workout.exercises.filter { it.exercise.muscleGroup.contains("Плеч", true) }
+                .sumOf { ex -> ex.sets.sumOf { it.weightKg * it.reps } }
+            if (volume > 0) workout.workout.number to volume.toFloat() else null
+        }
+        if (shoulderVolume.isEmpty()) Text("Данные появятся после сохранения программы «Ноги и плечи».")
+        else {
+            Text("Объём работы на плечи: вес × повторения")
+            SimpleLineChart(shoulderVolume.map { it.second })
+            Text(shoulderVolume.joinToString("   ") { "№${it.first}: ${it.second.toInt()} кг" }, style = MaterialTheme.typography.bodySmall)
+        }
+        HorizontalDivider()
+        Text("НАГРУЗКА ПО ГРУППАМ МЫШЦ", style = MaterialTheme.typography.titleMedium)
+        val groupVolumes = ordered.flatMap { it.exercises }.groupBy { it.exercise.muscleGroup }
+            .mapValues { (_, exercises) -> exercises.sumOf { ex -> ex.sets.sumOf { it.weightKg * it.reps } } }
+            .toList().sortedByDescending { it.second }
+        groupVolumes.forEach { (group, volume) ->
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(group)
+                    Text("${volume.toInt()} кг·повт.", color = MaterialTheme.colorScheme.secondary)
+                }
+                LinearProgressIndicator(progress = { (volume / (groupVolumes.firstOrNull()?.second?.coerceAtLeast(1.0) ?: 1.0)).toFloat() }, modifier = Modifier.fillMaxWidth())
+            }
+        }
         Text("График целевых мышц", style = MaterialTheme.typography.titleMedium)
         Text("Объём нагрузки: вес × повторения", style = MaterialTheme.typography.bodySmall)
         if (muscleNames.isEmpty()) Text("Группы мышц появятся после сохранения тренировок.")
