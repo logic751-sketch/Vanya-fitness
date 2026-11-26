@@ -560,14 +560,19 @@ private fun HomeDashboard(
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(Modifier.padding(18.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Surface(
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                    color = androidx.compose.ui.graphics.Color(0xFF243D4D),
-                    modifier = Modifier.size(88.dp)
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .then(Modifier.border(2.dp, orange, androidx.compose.foundation.shape.CircleShape))
+                        .clip(androidx.compose.foundation.shape.CircleShape),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
                 ) {
-                    Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
-                        Text("ВАНЯ", color = orange, style = MaterialTheme.typography.titleLarge)
-                    }
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.vanya_avatar),
+                        contentDescription = "Портрет Вани в спортивной майке",
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
