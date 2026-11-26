@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val dao = FitnessDatabase.get(this).dao()
-        lifecycleScope.launch { seedTemplates(dao) }
+        lifecycleScope.launch { seedTemplates(dao); importWorkout19(dao) }
         setContent { VanyaFitnessApp(dao) }
     }
 }
@@ -78,6 +78,39 @@ private suspend fun seedTemplates(dao: FitnessDao) {
                 sortOrder = index
             ))
         }
+    }
+}
+
+/** Imports the supplied workout #19 once; existing history is never replaced. */
+private suspend fun importWorkout19(dao: FitnessDao) {
+    if (dao.allWorkouts().any { it.number == 19 }) return
+    val workoutId = dao.addWorkout(Workout(
+        number = 19,
+        date = "2026-11-25",
+        program = PROGRAM_A
+    ))
+    val entries = listOf(
+        Triple("Жим от груди в тренажёре", "Грудь", listOf(30.0 to 8, 30.0 to 8, 30.0 to 8)),
+        Triple("Бабочка", "Грудь", listOf(20.0 to 12, 20.0 to 12, 20.0 to 12)),
+        Triple("Тяга верхнего блока", "Спина", listOf(35.0 to 10, 35.0 to 10, 35.0 to 8)),
+        Triple("Тяга к животу в Смите", "Спина", listOf(35.0 to 12, 35.0 to 12, 35.0 to 12)),
+        Triple("Сгибание рук изоляция на скамье", "Бицепс", listOf(15.0 to 11, 15.0 to 12, 15.0 to 10)),
+        Triple("Разгибание рук на трицепс в тренажёре", "Трицепс", listOf(25.0 to 15, 27.5 to 12, 27.5 to 15))
+    )
+    entries.forEach { (name, muscle, sets) ->
+        val exerciseId = dao.addExercise(Exercise(
+            workoutId = workoutId,
+            name = name,
+            muscleGroup = muscle
+        ))
+        dao.addSets(sets.mapIndexed { index, set ->
+            TrainingSet(
+                exerciseId = exerciseId,
+                setNumber = index + 1,
+                weightKg = set.first,
+                reps = set.second
+            )
+        })
     }
 }
 
