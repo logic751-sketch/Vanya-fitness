@@ -268,7 +268,15 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     val chosen = templates.filter { it.programName == selectedProgram }.sortedBy { it.sortOrder }
                     if (chosen.isEmpty()) Text("В этой программе пока нет упражнений. Добавь их во вкладке «Упражнения».")
                     chosen.forEach { item ->
-                        val rows = setDrafts[item.id] ?: List(3) { SetDraft() }
+                        val previousSets = remember(item.id, workouts) {
+                            workouts.asSequence().sortedByDescending { it.workout.number }
+                                .flatMap { it.exercises.asSequence() }
+                                .firstOrNull { it.exercise.name.equals(item.name, true) }
+                                ?.sets?.sortedBy { it.setNumber }
+                                ?.map { SetDraft(weight = it.weightKg.toString().removeSuffix(".0"), reps = it.reps.toString()) }
+                                .orEmpty()
+                        }
+                        val rows = setDrafts[item.id] ?: if (previousSets.isNotEmpty()) previousSets else List(3) { SetDraft() }
                         Card(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
                             Column(Modifier.padding(10.dp)) {
                                 Text(item.name, style = MaterialTheme.typography.titleMedium)
