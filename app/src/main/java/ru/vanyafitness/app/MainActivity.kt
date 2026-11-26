@@ -178,41 +178,58 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
         pendingPhotoForNew = false
     }
 
-    MaterialTheme(colorScheme = lightColorScheme(primary = androidx.compose.ui.graphics.Color(0xFF193746))) {
+    val darkColors = darkColorScheme(
+        primary = androidx.compose.ui.graphics.Color(0xFFFF8A00),
+        secondary = androidx.compose.ui.graphics.Color(0xFF19BCEB),
+        background = androidx.compose.ui.graphics.Color(0xFF07131D),
+        surface = androidx.compose.ui.graphics.Color(0xFF102536),
+        onPrimary = androidx.compose.ui.graphics.Color(0xFF101820),
+        onBackground = androidx.compose.ui.graphics.Color(0xFFF4F7FA),
+        onSurface = androidx.compose.ui.graphics.Color(0xFFF4F7FA)
+    )
+    MaterialTheme(colorScheme = darkColors) {
         Scaffold(
-            topBar = { TopAppBar(title = { Text("VANYA FITNESS 2.0") }) },
+            containerColor = androidx.compose.ui.graphics.Color(0xFF07131D),
+            topBar = { TopAppBar(
+                title = { Text("VANYA FITNESS", style = MaterialTheme.typography.titleLarge) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = androidx.compose.ui.graphics.Color(0xFF07131D),
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
+            ) },
             bottomBar = {
-                NavigationBar {
+                NavigationBar(containerColor = androidx.compose.ui.graphics.Color(0xFF0C1D2B)) {
                     listOf("Главная", "Тренировка", "Упражнения", "История", "Аналитика", "Копия").forEachIndexed { index, label ->
                         NavigationBarItem(
                             selected = page == index,
                             onClick = { page = index },
-                            icon = {},
-                            label = { Text(label) }
+                            icon = { Text(listOf("⌂", "🏋", "💪", "▤", "▥", "⟲")[index]) },
+                            label = { Text(label, maxLines = 1, style = MaterialTheme.typography.labelSmall) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = androidx.compose.ui.graphics.Color(0xFF263B4B),
+                                unselectedIconColor = androidx.compose.ui.graphics.Color(0xFF9CB1C1),
+                                unselectedTextColor = androidx.compose.ui.graphics.Color(0xFF9CB1C1)
+                            )
                         )
                     }
                 }
             }
         ) { padding ->
             when (page) {
-                0 -> Column(Modifier.padding(padding).padding(16.dp)) {
-                    Text("Тренировочный дневник Вани", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(Modifier.height(12.dp))
-                    Text("Следующая тренировка №${(workouts.maxOfOrNull { it.workout.number } ?: 18) + 1}")
-                    Text("Программ в библиотеке: ${templates.map { it.programName }.distinct().size}")
-                    Text("Упражнений: ${templates.size}")
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = { page = 1 }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Начать тренировку")
-                    }
-                    OutlinedButton(onClick = { page = 2 }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Редактировать упражнения")
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text("Версия 2.0: редактируемые программы, фотографии из галереи и отдельная запись каждого подхода.",
-                        style = MaterialTheme.typography.bodySmall)
-                    if (status.isNotBlank()) Text(status)
-                }
+                0 -> HomeDashboard(
+                    modifier = Modifier.padding(padding),
+                    nextNumber = (workouts.maxOfOrNull { it.workout.number } ?: 18) + 1,
+                    workoutCount = workouts.size,
+                    exerciseCount = templates.size,
+                    onStart = { page = 1 },
+                    onHistory = { page = 3 },
+                    onExercises = { page = 2 },
+                    onAnalytics = { page = 4 },
+                    onBackup = { page = 5 },
+                    status = status
+                )
 
                 1 -> Column(Modifier.padding(padding).padding(12.dp).verticalScroll(rememberScrollState())) {
                     Text("Новая тренировка", style = MaterialTheme.typography.headlineSmall)
@@ -517,6 +534,99 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
     }
 }
 
+
+@Composable
+private fun HomeDashboard(
+    modifier: Modifier = Modifier,
+    nextNumber: Int,
+    workoutCount: Int,
+    exerciseCount: Int,
+    onStart: () -> Unit,
+    onHistory: () -> Unit,
+    onExercises: () -> Unit,
+    onAnalytics: () -> Unit,
+    onBackup: () -> Unit,
+    status: String
+) {
+    val orange = androidx.compose.ui.graphics.Color(0xFFFF8A00)
+    val blue = androidx.compose.ui.graphics.Color(0xFF19BCEB)
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF102536)),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(Modifier.padding(18.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = androidx.compose.ui.graphics.Color(0xFF243D4D),
+                    modifier = Modifier.size(88.dp)
+                ) {
+                    Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                        Text("ВАНЯ", color = orange, style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("VANYA FITNESS", color = orange, style = MaterialTheme.typography.titleLarge)
+                    Text("Привет, Ваня! 💪", style = MaterialTheme.typography.headlineSmall)
+                    Text("Продолжаем тренировки!", color = androidx.compose.ui.graphics.Color(0xFFB6C8D5))
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatTile("ТРЕНИРОВОК", workoutCount.toString(), "▦", orange, Modifier.weight(1f))
+            StatTile("СЛЕДУЮЩАЯ", "№$nextNumber", "↗", blue, Modifier.weight(1f))
+            StatTile("УПРАЖНЕНИЙ", exerciseCount.toString(), "✦", orange, Modifier.weight(1f))
+        }
+        DashboardTile("НАЧАТЬ ТРЕНИРОВКУ", "Записать подходы и результаты", "🏋", orange, Modifier.fillMaxWidth(), onStart)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            DashboardTile("ИСТОРИЯ", "Все занятия", "▤", blue, Modifier.weight(1f), onHistory)
+            DashboardTile("АНАЛИТИКА", "Рост результатов", "▥", blue, Modifier.weight(1f), onAnalytics)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            DashboardTile("УПРАЖНЕНИЯ", "Программы и фото", "💪", blue, Modifier.weight(1f), onExercises)
+            DashboardTile("КОПИЯ", "Защита данных", "⟲", blue, Modifier.weight(1f), onBackup)
+        }
+        if (status.isNotBlank()) {
+            Text(status, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodyMedium)
+        }
+        Text("Сильнее с каждой тренировкой", color = androidx.compose.ui.graphics.Color(0xFF8298A8),
+            style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@Composable
+private fun StatTile(title: String, value: String, symbol: String, accent: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
+    Card(modifier, colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF102536)),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)) {
+        Column(Modifier.padding(10.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+            Text(symbol, color = accent, style = MaterialTheme.typography.titleLarge)
+            Text(value, style = MaterialTheme.typography.headlineSmall, color = androidx.compose.ui.graphics.Color.White)
+            Text(title, style = MaterialTheme.typography.labelSmall, color = androidx.compose.ui.graphics.Color(0xFFB6C8D5), maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun DashboardTile(title: String, subtitle: String, symbol: String, accent: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = modifier.heightIn(min = 112.dp),
+        colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF102536)),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, accent.copy(alpha = 0.55f))) {
+        Row(Modifier.fillMaxSize().padding(14.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(symbol, color = accent, style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(title, color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleMedium)
+                Text(subtitle, color = androidx.compose.ui.graphics.Color(0xFFB6C8D5), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
