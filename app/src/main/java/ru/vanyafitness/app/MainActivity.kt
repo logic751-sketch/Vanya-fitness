@@ -98,6 +98,21 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
     var showEditor by remember { mutableStateOf(false) }
     var pendingPhotoId by remember { mutableStateOf<Long?>(null) }
     var pendingPhotoForNew by remember { mutableStateOf(false) }
+    var showRestoreConfirm by remember { mutableStateOf(false) }
+    val backupExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) scope.launch {
+            try { BackupManager.export(context, FitnessDatabase.get(context), uri); status = "Резервная копия сохранена."
+            } catch (_: Exception) { status = "Не удалось создать резервную копию."
+            }
+        }
+    }
+    val backupImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            try { BackupManager.restore(context, FitnessDatabase.get(context), uri); status = "Данные восстановлены из резервной копии."
+            } catch (_: Exception) { status = "Не удалось восстановить данные из этого файла."
+            }
+        }
+    }
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
@@ -135,7 +150,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
             topBar = { TopAppBar(title = { Text("VANYA FITNESS 2.0") }) },
             bottomBar = {
                 NavigationBar {
-                    listOf("Главная", "Тренировка", "Упражнения", "История", "Аналитика").forEachIndexed { index, label ->
+                    listOf("Главная", "Тренировка", "Упражнения", "История", "Аналитика", "Копия").forEachIndexed { index, label ->
                         NavigationBarItem(
                             selected = page == index,
                             onClick = { page = index },
@@ -370,9 +385,38 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                         }
                     }
                 }
-                else -> AnalyticsScreen(workouts)
+                4 -> AnalyticsScreen(workouts)
+                5 -> Column(Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Резервная копия", style = MaterialTheme.typography.headlineSmall)
+                    Text("Сохрани историю тренировок, упражнения, подходы и библиотеку упражнений в отдельный файл.")
+                    Button(onClick = { backupExport.launch("vanya_fitness_backup.json") }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Создать резервную копию")
+                    }
+                    OutlinedButton(onClick = { showRestoreConfirm = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Восстановить из копии")
+                    }
+                    Text("Восстановление заменит текущие записи. Перед ним обязательно создай свежую копию текущих данных.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    if (status.isNotBlank()) Text(status)
+                }
             }
         }
+    }
+
+    if (showRestoreConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRestoreConfirm = false },
+            title = { Text("Восстановить данные?") },
+            text = { Text("Текущая история и библиотека будут заменены данными из выбранного файла. Продолжай только если у тебя есть свежая резервная копия.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRestoreConfirm = false
+                    backupImport.launch(arrayOf("application/json", "text/json", "*/*"))
+                }) { Text("Выбрать файл") }
+            },
+            dismissButton = { TextButton(onClick = { showRestoreConfirm = false }) { Text("Отмена") } }
+        )
     }
 
     if (showEditor && editing != null) {
