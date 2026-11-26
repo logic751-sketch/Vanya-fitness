@@ -8,7 +8,7 @@ android {
     namespace = "ru.vanyafitness.app"
     compileSdk = 35
     defaultConfig {
-        applicationId = "ru.vanyafitness.app"
+        applicationId = "ru.vanyafitness.app2"
         minSdk = 26
         targetSdk = 35
         versionCode = 2
