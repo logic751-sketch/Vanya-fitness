@@ -282,6 +282,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     onAnalytics = { page = 4 },
                     onBackup = { page = 5 },
                     onProfile = { page = 6 },
+                    onPrograms = { page = 8 },
                     lastWorkout = workouts.maxByOrNull { it.workout.number },
                     status = status
                 )
@@ -628,6 +629,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
 
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProgramBuilderScreen(
     modifier: Modifier,
