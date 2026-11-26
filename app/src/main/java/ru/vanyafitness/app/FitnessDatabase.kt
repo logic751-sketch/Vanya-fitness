@@ -149,6 +149,15 @@ interface FitnessDao {
     @Query("SELECT * FROM program_day_exercises ORDER BY id")
     suspend fun allProgramDayExercises(): List<ProgramDayExercise>
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPrograms(items: List<TrainingProgram>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProgramDays(items: List<ProgramDay>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProgramDayExercises(items: List<ProgramDayExercise>)
+
     @Insert
     suspend fun addProgram(item: TrainingProgram): Long
 
