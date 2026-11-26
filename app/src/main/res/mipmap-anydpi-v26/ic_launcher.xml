@@ -1,4 +1,4 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/vanya_icon_background" />
-    <foreground android:drawable="@drawable/vanya_icon_foreground" />
+    <foreground android:drawable="@drawable/vanya_icon_compact" />
 </adaptive-icon>
