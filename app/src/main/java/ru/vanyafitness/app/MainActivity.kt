@@ -203,11 +203,13 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
             ) },
             bottomBar = {
                 NavigationBar(containerColor = androidx.compose.ui.graphics.Color(0xFF0C1D2B)) {
-                    listOf("Главная", "Тренировка", "Упражнения", "История", "Аналитика", "Копия").forEachIndexed { index, label ->
+                    listOf("Главная", "Тренировка", "Прогресс", "Ещё").forEachIndexed { index, label ->
+                        val destination = listOf(0, 1, 4, 7)[index]
+                        val selected = when (page) { 0 -> 0; 1 -> 1; 4 -> 2; else -> 3 }
                         NavigationBarItem(
-                            selected = page == index,
-                            onClick = { page = index },
-                            icon = { Text(listOf("⌂", "🏋", "💪", "▤", "▥", "⟲")[index]) },
+                            selected = selected == index,
+                            onClick = { page = destination },
+                            icon = { Text(listOf("⌂", "🏋", "▥", "☰")[index]) },
                             label = { Text(label, maxLines = 1, style = MaterialTheme.typography.labelSmall) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,
@@ -233,6 +235,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     onAnalytics = { page = 4 },
                     onBackup = { page = 5 },
                     onProfile = { page = 6 },
+                    lastWorkout = workouts.maxByOrNull { it.workout.number },
                     status = status
                 )
 
@@ -452,6 +455,14 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                 }
                 4 -> AnalyticsScreen(workouts)
                 6 -> ProfileProgressScreen(Modifier.padding(padding), workouts)
+                7 -> MoreMenuScreen(
+                    modifier = Modifier.padding(padding),
+                    onHistory = { page = 3 },
+                    onExercises = { page = 2 },
+                    onAnalytics = { page = 4 },
+                    onBackup = { page = 5 },
+                    onProfile = { page = 6 }
+                )
                 5 -> Column(Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Резервная копия", style = MaterialTheme.typography.headlineSmall)
@@ -570,6 +581,7 @@ private fun HomeDashboard(
     onAnalytics: () -> Unit,
     onBackup: () -> Unit,
     onProfile: () -> Unit,
+    lastWorkout: WorkoutWithExercises?,
     status: String
 ) {
     val orange = androidx.compose.ui.graphics.Color(0xFFFF8A00)
@@ -611,21 +623,72 @@ private fun HomeDashboard(
             StatTile("СЛЕДУЮЩАЯ", "№$nextNumber", "↗", blue, Modifier.weight(1f))
             StatTile("УПРАЖНЕНИЙ", exerciseCount.toString(), "✦", orange, Modifier.weight(1f))
         }
-        DashboardTile("НАЧАТЬ ТРЕНИРОВКУ", "Записать подходы и результаты", "🏋", orange, Modifier.fillMaxWidth(), onStart)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF172F40)),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp)
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("СЛЕДУЮЩАЯ ТРЕНИРОВКА", color = blue, style = MaterialTheme.typography.labelLarge)
+                Text(if (nextNumber % 2 == 0) PROGRAM_B else PROGRAM_A,
+                    style = MaterialTheme.typography.titleLarge, color = androidx.compose.ui.graphics.Color.White)
+                Text("Занятие №$nextNumber · Веди подходы прямо во время тренировки",
+                    color = androidx.compose.ui.graphics.Color(0xFFB6C8D5), style = MaterialTheme.typography.bodySmall)
+                Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) { Text("НАЧАТЬ ТРЕНИРОВКУ  →") }
+            }
+        }
+        lastWorkout?.let { recent ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF102536)),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("ПОСЛЕДНЯЯ ТРЕНИРОВКА", color = orange, style = MaterialTheme.typography.labelLarge)
+                    Text("№" + recent.workout.number + " · " + recent.workout.program, style = MaterialTheme.typography.titleMedium)
+                    Text(recent.workout.date, color = androidx.compose.ui.graphics.Color(0xFFB6C8D5))
+                    val sets = recent.exercises.sumOf { it.sets.size }
+                    val volume = recent.exercises.sumOf { ex -> ex.sets.sumOf { it.weightKg * it.reps } }.toInt()
+                    Text(recent.exercises.size.toString() + " упражнений  ·  " + sets + " подходов  ·  " + volume + " кг·повт.",
+                        color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             DashboardTile("ИСТОРИЯ", "Все занятия", "▤", blue, Modifier.weight(1f), onHistory)
-            DashboardTile("АНАЛИТИКА", "Рост результатов", "▥", blue, Modifier.weight(1f), onAnalytics)
+            DashboardTile("ПРОГРЕСС", "Рекорды и графики", "▥", blue, Modifier.weight(1f), onAnalytics)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DashboardTile("УПРАЖНЕНИЯ", "Программы и фото", "💪", blue, Modifier.weight(1f), onExercises)
-            DashboardTile("КОПИЯ", "Защита данных", "⟲", blue, Modifier.weight(1f), onBackup)
-        }
-        DashboardTile("ПРОФИЛЬ И ДОСТИЖЕНИЯ", "Личные параметры, календарь и награды", "🏆", orange, Modifier.fillMaxWidth(), onProfile)
+        Text("Все дополнительные разделы доступны во вкладке «Ещё».",
+            color = androidx.compose.ui.graphics.Color(0xFF8298A8), style = MaterialTheme.typography.bodySmall)
         if (status.isNotBlank()) {
             Text(status, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodyMedium)
         }
         Text("Сильнее с каждой тренировкой", color = androidx.compose.ui.graphics.Color(0xFF8298A8),
             style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@Composable
+private fun MoreMenuScreen(
+    modifier: Modifier = Modifier,
+    onHistory: () -> Unit,
+    onExercises: () -> Unit,
+    onAnalytics: () -> Unit,
+    onBackup: () -> Unit,
+    onProfile: () -> Unit
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Ещё", style = MaterialTheme.typography.headlineSmall)
+        Text("Дополнительные разделы Vanya Fitness", color = androidx.compose.ui.graphics.Color(0xFFB6C8D5))
+        DashboardTile("ИСТОРИЯ ТРЕНИРОВОК", "Все сохранённые занятия и подходы", "▤",
+            MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onHistory)
+        DashboardTile("БИБЛИОТЕКА УПРАЖНЕНИЙ", "Программы, порядок и фотографии", "💪",
+            MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onExercises)
+        DashboardTile("ПРОФИЛЬ И ДОСТИЖЕНИЯ", "Параметры, календарь и награды", "🏆",
+            MaterialTheme.colorScheme.primary, Modifier.fillMaxWidth(), onProfile)
+        DashboardTile("РЕЗЕРВНАЯ КОПИЯ", "Сохранить или перенести историю", "⟲",
+            MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onBackup)
     }
 }
 
