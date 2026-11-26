@@ -282,7 +282,6 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     onAnalytics = { page = 4 },
                     onBackup = { page = 5 },
                     onProfile = { page = 6 },
-                    onPrograms = { page = 8 },
                     lastWorkout = workouts.maxByOrNull { it.workout.number },
                     status = status
                 )
@@ -520,7 +519,8 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     onExercises = { page = 2 },
                     onAnalytics = { page = 4 },
                     onBackup = { page = 5 },
-                    onProfile = { page = 6 }
+                    onProfile = { page = 6 },
+                    onPrograms = { page = 8 }
                 )
                 5 -> Column(Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
