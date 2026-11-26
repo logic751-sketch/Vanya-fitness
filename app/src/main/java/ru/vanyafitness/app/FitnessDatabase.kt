@@ -37,6 +37,30 @@ data class TrainingSet(
     val reps: Int
 )
 
+@Entity(tableName = "training_programs")
+data class TrainingProgram(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val description: String = "",
+    val sortOrder: Int = 0
+)
+
+@Entity(tableName = "program_days", indices = [Index("programId")])
+data class ProgramDay(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val programId: Long,
+    val name: String,
+    val sortOrder: Int = 0
+)
+
+@Entity(tableName = "program_day_exercises", indices = [Index("dayId"), Index("templateId")])
+data class ProgramDayExercise(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val dayId: Long,
+    val templateId: Long,
+    val sortOrder: Int = 0
+)
+
 @Entity(tableName = "exercise_templates", indices = [Index(value = ["programName", "sortOrder"])])
 data class ExerciseTemplate(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -107,6 +131,54 @@ interface FitnessDao {
     suspend fun clearTemplates()
 
 
+    @Query("SELECT * FROM training_programs ORDER BY sortOrder, id")
+    fun observePrograms(): Flow<List<TrainingProgram>>
+
+    @Query("SELECT * FROM program_days ORDER BY programId, sortOrder, id")
+    fun observeProgramDays(): Flow<List<ProgramDay>>
+
+    @Query("SELECT * FROM program_day_exercises ORDER BY dayId, sortOrder, id")
+    fun observeProgramDayExercises(): Flow<List<ProgramDayExercise>>
+
+    @Query("SELECT * FROM training_programs ORDER BY id")
+    suspend fun allPrograms(): List<TrainingProgram>
+
+    @Query("SELECT * FROM program_days ORDER BY id")
+    suspend fun allProgramDays(): List<ProgramDay>
+
+    @Query("SELECT * FROM program_day_exercises ORDER BY id")
+    suspend fun allProgramDayExercises(): List<ProgramDayExercise>
+
+    @Insert
+    suspend fun addProgram(item: TrainingProgram): Long
+
+    @Insert
+    suspend fun addProgramDay(item: ProgramDay): Long
+
+    @Insert
+    suspend fun addProgramDayExercise(item: ProgramDayExercise): Long
+
+    @Update
+    suspend fun updateProgram(item: TrainingProgram)
+
+    @Update
+    suspend fun updateProgramDay(item: ProgramDay)
+
+    @Query("DELETE FROM program_day_exercises WHERE dayId = :dayId")
+    suspend fun clearDayExercises(dayId: Long)
+
+    @Query("DELETE FROM program_days WHERE programId = :programId")
+    suspend fun clearProgramDays(programId: Long)
+
+    @Query("DELETE FROM training_programs")
+    suspend fun clearPrograms()
+
+    @Query("DELETE FROM program_days")
+    suspend fun clearAllProgramDays()
+
+    @Query("DELETE FROM program_day_exercises")
+    suspend fun clearAllProgramDayExercises()
+
     @Query("SELECT * FROM exercise_templates ORDER BY programName, sortOrder, id")
     fun observeTemplates(): Flow<List<ExerciseTemplate>>
 
@@ -136,8 +208,8 @@ interface FitnessDao {
 }
 
 @Database(
-    entities = [Workout::class, Exercise::class, TrainingSet::class, ExerciseTemplate::class],
-    version = 2,
+    entities = [Workout::class, Exercise::class, TrainingSet::class, ExerciseTemplate::class, TrainingProgram::class, ProgramDay::class, ProgramDayExercise::class],
+    version = 3,
     exportSchema = false
 )
 abstract class FitnessDatabase : RoomDatabase() {
@@ -160,6 +232,17 @@ abstract class FitnessDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS training_programs (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL, sortOrder INTEGER NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS program_days (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, programId INTEGER NOT NULL, name TEXT NOT NULL, sortOrder INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_program_days_programId ON program_days(programId)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS program_day_exercises (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dayId INTEGER NOT NULL, templateId INTEGER NOT NULL, sortOrder INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_program_day_exercises_dayId ON program_day_exercises(dayId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_program_day_exercises_templateId ON program_day_exercises(templateId)")
+            }
+        }
+
         @Volatile private var instance: FitnessDatabase? = null
 
         fun get(context: Context): FitnessDatabase = instance ?: synchronized(this) {
@@ -167,7 +250,7 @@ abstract class FitnessDatabase : RoomDatabase() {
                 context.applicationContext,
                 FitnessDatabase::class.java,
                 "vanya_fitness.db"
-            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
         }
     }
 }
