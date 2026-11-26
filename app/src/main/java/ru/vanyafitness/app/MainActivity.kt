@@ -163,7 +163,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
     }
     val backupImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
-            try { BackupManager.restore(context, FitnessDatabase.get(context), uri); status = "Данные восстановлены из резервной копии."
+            try { BackupManager.restore(context, FitnessDatabase.get(context), uri); seedDefaultProgram(FitnessDatabase.get(context).dao()); status = "Данные восстановлены из резервной копии."
             } catch (_: Exception) { status = "Не удалось восстановить данные из этого файла."
             }
         }
@@ -862,7 +862,8 @@ private fun MoreMenuScreen(
             MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onHistory)
         DashboardTile("БИБЛИОТЕКА УПРАЖНЕНИЙ", "Программы, порядок и фотографии", "💪",
             MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onExercises)
-        DashboardTile("КОНСТРУКТОР ПРОГРАММ", "Создавай программы и собирай дни из библиотеки", "🧩",\n            MaterialTheme.colorScheme.primary, Modifier.fillMaxWidth(), onPrograms)\n        DashboardTile("ПРОФИЛЬ И ДОСТИЖЕНИЯ", "Параметры, календарь и награды", "🏆",
+        DashboardTile("КОНСТРУКТОР ПРОГРАММ", "Создавай программы и собирай дни из библиотеки", "🧩",
+            MaterialTheme.colorScheme.primary, Modifier.fillMaxWidth(), onPrograms)\n        DashboardTile("ПРОФИЛЬ И ДОСТИЖЕНИЯ", "Параметры, календарь и награды", "🏆",
             MaterialTheme.colorScheme.primary, Modifier.fillMaxWidth(), onProfile)
         DashboardTile("РЕЗЕРВНАЯ КОПИЯ", "Сохранить или перенести историю", "⟲",
             MaterialTheme.colorScheme.secondary, Modifier.fillMaxWidth(), onBackup)
