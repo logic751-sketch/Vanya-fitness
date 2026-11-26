@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -230,11 +231,13 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     onExercises = { page = 2 },
                     onAnalytics = { page = 4 },
                     onBackup = { page = 5 },
+                    onProfile = { page = 6 },
                     status = status
                 )
 
                 1 -> Column(Modifier.padding(padding).padding(12.dp).verticalScroll(rememberScrollState())) {
                     Text("Новая тренировка", style = MaterialTheme.typography.headlineSmall)
+                    RestTimerCard()
                     OutlinedTextField(
                         value = workoutDate,
                         onValueChange = { workoutDate = it },
@@ -438,6 +441,7 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     }
                 }
                 4 -> AnalyticsScreen(workouts)
+                6 -> ProfileProgressScreen(Modifier.padding(padding), workouts)
                 5 -> Column(Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Резервная копия", style = MaterialTheme.typography.headlineSmall)
@@ -548,6 +552,7 @@ private fun HomeDashboard(
     onExercises: () -> Unit,
     onAnalytics: () -> Unit,
     onBackup: () -> Unit,
+    onProfile: () -> Unit,
     status: String
 ) {
     val orange = androidx.compose.ui.graphics.Color(0xFFFF8A00)
@@ -598,11 +603,139 @@ private fun HomeDashboard(
             DashboardTile("УПРАЖНЕНИЯ", "Программы и фото", "💪", blue, Modifier.weight(1f), onExercises)
             DashboardTile("КОПИЯ", "Защита данных", "⟲", blue, Modifier.weight(1f), onBackup)
         }
+        DashboardTile("ПРОФИЛЬ И ДОСТИЖЕНИЯ", "Личные параметры, календарь и награды", "🏆", orange, Modifier.fillMaxWidth(), onProfile)
         if (status.isNotBlank()) {
             Text(status, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodyMedium)
         }
         Text("Сильнее с каждой тренировкой", color = androidx.compose.ui.graphics.Color(0xFF8298A8),
             style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@Composable
+private fun RestTimerCard() {
+    var seconds by remember { mutableIntStateOf(90) }
+    var remaining by remember { mutableIntStateOf(90) }
+    var running by remember { mutableStateOf(false) }
+    LaunchedEffect(running, remaining) {
+        if (running && remaining > 0) {
+            delay(1000)
+            remaining -= 1
+        } else if (remaining == 0) {
+            running = false
+        }
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF102536)),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("⏱ ТАЙМЕР ОТДЫХА", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
+            Text(String.format(Locale.getDefault(), "%02d:%02d", remaining / 60, remaining % 60),
+                style = MaterialTheme.typography.headlineLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(60, 90, 120).forEach { value ->
+                    FilterChip(selected = seconds == value, onClick = {
+                        seconds = value; remaining = value; running = false
+                    }, label = { Text("${value / 60} мин") })
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    if (running) running = false else {
+                        if (remaining <= 0) remaining = seconds
+                        running = true
+                    }
+                }, modifier = Modifier.weight(1f)) { Text(if (running) "Пауза" else "Старт") }
+                OutlinedButton(onClick = { running = false; remaining = seconds }) { Text("Сброс") }
+            }
+            if (remaining == 0) Text("Отдых завершён — следующий подход!", color = MaterialTheme.colorScheme.secondary)
+        }
+    }
+}
+
+@Composable
+private fun ProfileProgressScreen(modifier: Modifier, workouts: List<WorkoutWithExercises>) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("vanya_profile", android.content.Context.MODE_PRIVATE) }
+    var height by remember { mutableStateOf(prefs.getString("height", "") ?: "") }
+    var weight by remember { mutableStateOf(prefs.getString("weight", "") ?: "") }
+    var age by remember { mutableStateOf(prefs.getString("age", "") ?: "") }
+    val count = workouts.size
+    val totalSets = workouts.sumOf { w -> w.exercises.sumOf { it.sets.size } }
+    val dates = workouts.map { it.workout.date }.toSet()
+    val milestones = listOf(10, 20, 30, 50, 75, 100)
+    val lastWorkout = workouts.maxByOrNull { it.workout.number }
+    val coaching = when {
+        lastWorkout == null -> "Сохрани первую тренировку — здесь появятся персональные подсказки."
+        lastWorkout.workout.program == PROGRAM_B -> "Следующая по плану программа — грудь, спина и руки. На плечах сохраняй контроль техники и не гонись за весом."
+        else -> "Следующая по плану программа — ноги и плечи. Удели внимание средней и задней дельте, выполняй движения без рывков."
+    }
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Профиль Вани", style = MaterialTheme.typography.headlineSmall)
+        Card(colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF102536))) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("ЛИЧНЫЕ ПАРАМЕТРЫ", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(age, { age = it.filter(Char::isDigit); prefs.edit().putString("age", age).apply() },
+                    label = { Text("Возраст, лет") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(height, { height = it.filter(Char::isDigit); prefs.edit().putString("height", height).apply() },
+                    label = { Text("Рост, см") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(weight, { weight = it.replace(',', '.').filter { c -> c.isDigit() || c == '.' }; prefs.edit().putString("weight", weight).apply() },
+                    label = { Text("Вес, кг") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Text("Параметры сохраняются на этом телефоне.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatTile("ТРЕНИРОВОК", count.toString(), "▦", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+            StatTile("ПОДХОДОВ", totalSets.toString(), "↗", MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF102536))) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("🏆 ДОСТИЖЕНИЯ", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
+                milestones.forEach { target ->
+                    val achieved = count >= target
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(if (achieved) "🏅" else "🔒", style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("$target тренировок")
+                            LinearProgressIndicator(progress = { (count.toFloat() / target).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                        }
+                        Text("$count/$target", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF102536))) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("📅 КАЛЕНДАРЬ АКТИВНОСТИ", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
+                Text("Последние 7 дней", style = MaterialTheme.typography.bodySmall)
+                val recent = (0..6).map { offset ->
+                    val date = java.time.LocalDate.now().minusDays((6 - offset).toLong()).toString()
+                    date to dates.contains(date)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    recent.forEach { (date, active) ->
+                        Column(Modifier.weight(1f), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                            Text(date.takeLast(2), color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Surface(shape = androidx.compose.foundation.shape.CircleShape,
+                                color = if (active) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color(0xFF344958),
+                                modifier = Modifier.size(22.dp)) {}
+                            Text(date.substring(5, 7), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+                Text("Отмечены дни, в которые сохранена тренировка.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF102536))) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("ПЛАН НА СЛЕДУЮЩУЮ ТРЕНИРОВКУ", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.titleMedium)
+                Text(coaching)
+            }
+        }
     }
 }
 
