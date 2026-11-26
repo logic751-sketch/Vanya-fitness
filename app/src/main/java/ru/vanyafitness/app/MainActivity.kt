@@ -417,8 +417,8 @@ private fun VanyaFitnessApp(dao: FitnessDao) {
                     Text("Группу мышц можно выбрать или вписать вручную. Всё окно прокручивается.",
                         style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(Modifier.weight(1f), onClick = { showEditor = false; editing = null }) { Text("Отмена") }
-                        Button(Modifier.weight(1f), enabled = name.isNotBlank() && muscle.isNotBlank(), onClick = {
+                        OutlinedButton(modifier = Modifier.weight(1f), onClick = { showEditor = false; editing = null }) { Text("Отмена") }
+                        Button(modifier = Modifier.weight(1f), enabled = name.isNotBlank() && muscle.isNotBlank(), onClick = {
                             scope.launch {
                                 if (draft.id == null) {
                                     dao.addTemplate(ExerciseTemplate(programName = program, name = name.trim(),
