@@ -70,6 +70,43 @@ interface FitnessDao {
     @Query("SELECT COUNT(*) FROM workouts")
     suspend fun count(): Int
 
+    @Query("SELECT * FROM workouts ORDER BY id")
+    suspend fun allWorkouts(): List<Workout>
+
+    @Query("SELECT * FROM exercises ORDER BY id")
+    suspend fun allExercises(): List<Exercise>
+
+    @Query("SELECT * FROM sets ORDER BY id")
+    suspend fun allSets(): List<TrainingSet>
+
+    @Query("SELECT * FROM exercise_templates ORDER BY id")
+    suspend fun allTemplates(): List<ExerciseTemplate>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWorkouts(items: List<Workout>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExercises(items: List<Exercise>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSets(items: List<TrainingSet>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTemplates(items: List<ExerciseTemplate>)
+
+    @Query("DELETE FROM sets")
+    suspend fun clearSets()
+
+    @Query("DELETE FROM exercises")
+    suspend fun clearExercises()
+
+    @Query("DELETE FROM workouts")
+    suspend fun clearWorkouts()
+
+    @Query("DELETE FROM exercise_templates")
+    suspend fun clearTemplates()
+
+
     @Query("SELECT * FROM exercise_templates ORDER BY programName, sortOrder, id")
     fun observeTemplates(): Flow<List<ExerciseTemplate>>
 
